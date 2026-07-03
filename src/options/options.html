@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VanishMe Options</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>VanishMe Options</h1>
+    </header>
+
+    <section class="section">
+      <h2>Profile Management</h2>
+      <div class="profile-list">
+        <h3>Default Profiles</h3>
+        <div id="defaultProfiles"></div>
+
+        <h3>Custom Profiles</h3>
+        <div id="customProfiles"></div>
+        <button id="addProfile" class="btn-primary">Add Custom Profile</button>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Global Settings</h2>
+      <div class="settings-grid">
+        <label class="checkbox-label">
+          <input type="checkbox" id="globalEnabled">
+          <span>Global protection enabled</span>
+        </label>
+        <div class="input-group">
+          <label>Default WebRTC Policy:</label>
+          <select id="defaultWebrtcPolicy" class="input">
+            <option value="default">Default</option>
+            <option value="default_public_interface_only">Public interface only</option>
+            <option value="default_public_and_private_interfaces">Public and private</option>
+            <option value="disable_non_proxied_udp">Disable non-proxied UDP</option>
+          </select>
+        </div>
+        <label class="checkbox-label">
+          <input type="checkbox" id="defaultSpoofPermission">
+          <span>Spoof geolocation permission by default</span>
+        </label>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Site Rules</h2>
+      <div id="siteRules"></div>
+    </section>
+
+    <section class="section">
+      <h2>Data Management</h2>
+      <div class="data-actions">
+        <button id="exportConfig" class="btn-secondary">Export Configuration</button>
+        <button id="importConfig" class="btn-secondary">Import Configuration</button>
+        <button id="resetAll" class="btn-danger">Reset All Data</button>
+        <input type="file" id="importFile" accept=".json" style="display: none;">
+      </div>
+    </section>
+
+    <footer>
+      <button id="save" class="btn-primary">Save Settings</button>
+    </footer>
+  </div>
+
+  <!-- Profile Modal -->
+  <div id="profileModal" class="modal">
+    <div class="modal-content">
+      <h2 id="modalTitle">Add Custom Profile</h2>
+      <div class="modal-body">
+        <div class="input-group">
+          <label>Profile ID:</label>
+          <input type="text" id="profileId" class="input" placeholder="my-profile">
+        </div>
+        <div class="input-group">
+          <label>Name:</label>
+          <input type="text" id="profileName" class="input" placeholder="My Profile">
+        </div>
+        <div class="input-group">
+          <label>Description:</label>
+          <input type="text" id="profileDescription" class="input" placeholder="Optional">
+        </div>
+        <h3>Geolocation</h3>
+        <div class="input-group">
+          <label>Latitude:</label>
+          <input type="number" id="profileLatitude" class="input" step="any">
+        </div>
+        <div class="input-group">
+          <label>Longitude:</label>
+          <input type="number" id="profileLongitude" class="input" step="any">
+        </div>
+        <div class="input-group">
+          <label>Accuracy:</label>
+          <input type="number" id="profileAccuracy" class="input" step="1">
+        </div>
+        <h3>Language</h3>
+        <div class="input-group">
+          <label>Language:</label>
+          <input type="text" id="profileLanguage" class="input" placeholder="en-US">
+        </div>
+        <div class="input-group">
+          <label>Languages:</label>
+          <input type="text" id="profileLanguages" class="input" placeholder="en-US, en">
+        </div>
+        <div class="input-group">
+          <label>Accept-Language:</label>
+          <input type="text" id="profileAcceptLanguage" class="input" placeholder="en-US,en;q=0.9">
+        </div>
+        <h3>Timezone</h3>
+        <div class="input-group">
+          <label>Timezone:</label>
+          <input type="text" id="profileTimezone" class="input" placeholder="America/New_York">
+        </div>
+        <div class="input-group">
+          <label>Offset Minutes:</label>
+          <input type="number" id="profileOffsetMinutes" class="input" step="1">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="saveProfile" class="btn-primary">Save Profile</button>
+        <button id="cancelProfile" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>
