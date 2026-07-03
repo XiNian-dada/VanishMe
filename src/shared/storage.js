@@ -1,5 +1,6 @@
 import { DEFAULT_CONFIG } from './defaults';
 import { applyProfileToConfig } from './profile';
+import { shouldEnableSpoofing } from './domain-matcher';
 const STORAGE_KEY = 'bpg_config';
 export async function getConfig() {
     try {
@@ -40,9 +41,20 @@ export async function getEffectiveConfigForUrl(url) {
     catch {
         hostname = '';
     }
+    // 检查全局开关
+    if (!config.globalEnabled) {
+        return {
+            enabled: false,
+            geolocation: config.geolocation,
+            language: config.language,
+            timezone: config.timezone
+        };
+    }
+    // 根据匹配模式和域名列表判断是否启用
+    const matchEnabled = shouldEnableSpoofing(hostname, config.matchMode, config.domainList);
+    // 检查站点特定规则（优先级最高）
     const siteRule = config.siteRules[hostname];
-    const siteEnabled = siteRule ? siteRule.enabled : true;
-    const enabled = config.globalEnabled && siteEnabled;
+    const enabled = siteRule ? siteRule.enabled : matchEnabled;
     return {
         enabled,
         geolocation: config.geolocation,

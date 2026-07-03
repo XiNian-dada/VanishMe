@@ -1,6 +1,7 @@
 import type { PrivacyConfig, InjectedConfig } from './types';
 import { DEFAULT_CONFIG } from './defaults';
 import { applyProfileToConfig } from './profile';
+import { shouldEnableSpoofing } from './domain-matcher';
 
 const STORAGE_KEY = 'bpg_config';
 
@@ -46,10 +47,26 @@ export async function getEffectiveConfigForUrl(url: string): Promise<InjectedCon
     hostname = '';
   }
 
-  const siteRule = config.siteRules[hostname];
-  const siteEnabled = siteRule ? siteRule.enabled : true;
+  // 检查全局开关
+  if (!config.globalEnabled) {
+    return {
+      enabled: false,
+      geolocation: config.geolocation,
+      language: config.language,
+      timezone: config.timezone
+    };
+  }
 
-  const enabled = config.globalEnabled && siteEnabled;
+  // 根据匹配模式和域名列表判断是否启用
+  const matchEnabled = shouldEnableSpoofing(
+    hostname,
+    config.matchMode,
+    config.domainList
+  );
+
+  // 检查站点特定规则（优先级最高）
+  const siteRule = config.siteRules[hostname];
+  const enabled = siteRule ? siteRule.enabled : matchEnabled;
 
   return {
     enabled,

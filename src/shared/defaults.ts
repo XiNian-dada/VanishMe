@@ -100,6 +100,46 @@ export const DEFAULT_PROFILES: Profile[] = [
 
 export const DEFAULT_CONFIG: PrivacyConfig = {
   globalEnabled: true,
+  matchMode: 'whitelist', // 默认使用白名单模式
+  domainList: [
+    // AI 网站
+    'chatgpt.com',
+    '*.openai.com',
+    'claude.ai',
+    '*.anthropic.com',
+    'gemini.google.com',
+    'copilot.microsoft.com',
+
+    // 搜索引擎
+    'google.com',
+    '*.google.com',
+    'bing.com',
+    '*.bing.com',
+
+    // 社交媒体
+    'twitter.com',
+    '*.twitter.com',
+    'x.com',
+    '*.x.com',
+    'facebook.com',
+    '*.facebook.com',
+    'instagram.com',
+    '*.instagram.com',
+    'tiktok.com',
+    '*.tiktok.com',
+
+    // 视频平台
+    'youtube.com',
+    '*.youtube.com',
+    'netflix.com',
+    '*.netflix.com',
+
+    // 其他常见需要伪装的网站
+    'reddit.com',
+    '*.reddit.com',
+    'linkedin.com',
+    '*.linkedin.com'
+  ],
   siteRules: {},
   geolocation: {
     enabled: true,

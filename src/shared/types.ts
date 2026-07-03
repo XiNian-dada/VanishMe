@@ -64,8 +64,12 @@ export interface ProfileConfig {
   profiles: Profile[];
 }
 
+export type MatchMode = 'global' | 'whitelist' | 'blacklist';
+
 export interface PrivacyConfig {
   globalEnabled: boolean;
+  matchMode: MatchMode; // 匹配模式：全局、白名单、黑名单
+  domainList: string[]; // 域名列表（用于白名单或黑名单）
   siteRules: Record<string, SiteRule>;
   geolocation: GeolocationConfig;
   webrtc: WebRTCConfig;
