@@ -6,7 +6,15 @@ export async function getConfig() {
     try {
         const result = await chrome.storage.local.get(STORAGE_KEY);
         if (result[STORAGE_KEY]) {
-            return { ...DEFAULT_CONFIG, ...result[STORAGE_KEY] };
+            // 深度合并，确保新字段（如 canvas）有默认值
+            return {
+                ...DEFAULT_CONFIG,
+                ...result[STORAGE_KEY],
+                canvas: {
+                    ...DEFAULT_CONFIG.canvas,
+                    ...(result[STORAGE_KEY].canvas || {})
+                }
+            };
         }
         return DEFAULT_CONFIG;
     }
