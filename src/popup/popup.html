@@ -92,8 +92,9 @@
             <input type="text" id="timezone" class="input" placeholder="Asia/Singapore">
           </div>
           <div class="input-group">
-            <label>时差 (分钟)：</label>
-            <input type="number" id="offsetMinutes" class="input" step="1">
+            <label>UTC 偏移 (小时)：</label>
+            <input type="number" id="utcOffset" class="input" step="0.5" placeholder="-7">
+            <small style="color: #888; display: block; margin-top: 4px;">例如：-7 表示 UTC-7 (洛杉矶)，+8 表示 UTC+8 (新加坡)</small>
           </div>
         </div>
       </details>

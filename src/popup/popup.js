@@ -19,7 +19,7 @@ const saveCoordinateBtn = document.getElementById('saveCoordinate');
 const getFromIPBtn = document.getElementById('getFromIP');
 const timezoneEnabledEl = document.getElementById('timezoneEnabled');
 const timezoneEl = document.getElementById('timezone');
-const offsetMinutesEl = document.getElementById('offsetMinutes');
+const utcOffsetEl = document.getElementById('utcOffset');
 const languageEnabledEl = document.getElementById('languageEnabled');
 const languageEl = document.getElementById('language');
 const languagesEl = document.getElementById('languages');
@@ -60,7 +60,9 @@ async function loadConfig() {
     // Timezone
     timezoneEnabledEl.checked = currentConfig.timezone.enabled;
     timezoneEl.value = currentConfig.timezone.timezone;
-    offsetMinutesEl.value = currentConfig.timezone.offsetMinutes.toString();
+    // Convert offsetMinutes to hours for display
+    const utcOffsetHours = -currentConfig.timezone.offsetMinutes / 60;
+    utcOffsetEl.value = utcOffsetHours.toString();
     // Language
     languageEnabledEl.checked = currentConfig.language.enabled;
     languageEl.value = currentConfig.language.language;
@@ -84,7 +86,7 @@ async function saveChanges() {
         const lat = parseFloat(latitudeEl.value);
         const lon = parseFloat(longitudeEl.value);
         const acc = parseFloat(accuracyEl.value);
-        const offset = parseInt(offsetMinutesEl.value);
+        const utcOffsetHours = parseFloat(utcOffsetEl.value);
         if (lat < -90 || lat > 90) {
             alert('纬度必须在 -90 到 90 之间');
             return;
@@ -97,10 +99,14 @@ async function saveChanges() {
             alert('精度必须大于 0');
             return;
         }
-        if (offset < -840 || offset > 720) {
-            alert('时差必须在 -840 到 720 分钟之间');
+        if (utcOffsetHours < -12 || utcOffsetHours > 14) {
+            alert('UTC 偏移必须在 -12 到 +14 小时之间');
             return;
         }
+        // Convert UTC offset hours to offsetMinutes (note the sign reversal)
+        // UTC-7 (Los Angeles) = -7 hours = +420 minutes offset
+        // UTC+8 (Singapore) = +8 hours = -480 minutes offset
+        const offsetMinutes = -utcOffsetHours * 60;
         currentConfig.globalEnabled = globalEnabledEl.checked;
         currentConfig.geolocation.enabled = geolocationEnabledEl.checked;
         currentConfig.geolocation.latitude = lat;
@@ -111,7 +117,7 @@ async function saveChanges() {
         currentConfig.geolocation.spoofPermission = spoofPermissionEl.checked;
         currentConfig.timezone.enabled = timezoneEnabledEl.checked;
         currentConfig.timezone.timezone = timezoneEl.value;
-        currentConfig.timezone.offsetMinutes = offset;
+        currentConfig.timezone.offsetMinutes = offsetMinutes;
         currentConfig.language.enabled = languageEnabledEl.checked;
         currentConfig.language.language = languageEl.value;
         currentConfig.language.languages = languagesArray;
@@ -217,13 +223,17 @@ async function handleGetFromIP() {
             // Set timezone if available
             if (data.timezone) {
                 timezoneEl.value = data.timezone;
-                // Calculate offset from timezone name
-                // This is approximate - user should verify
+                // Calculate offset from timezone name and convert to UTC offset hours
+                // getTimezoneOffset returns UTC - local time in minutes
                 const now = new Date();
                 const tzDate = new Date(now.toLocaleString('en-US', { timeZone: data.timezone }));
-                const localDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
-                const offsetMinutes = Math.round((localDate.getTime() - tzDate.getTime()) / 60000);
-                offsetMinutesEl.value = offsetMinutes.toString();
+                const utcDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+                const offsetMinutes = Math.round((utcDate.getTime() - tzDate.getTime()) / 60000);
+                // Convert to UTC offset hours (reverse sign)
+                // offsetMinutes = 420 (LA) -> UTC offset = -7
+                // offsetMinutes = -480 (SG) -> UTC offset = +8
+                const utcOffsetHours = -offsetMinutes / 60;
+                utcOffsetEl.value = utcOffsetHours.toString();
             }
             alert(`已从 IP 获取位置信息：\n${data.city}, ${data.country}\n纬度: ${data.latitude}\n经度: ${data.longitude}\n时区: ${data.timezone || 'N/A'}`);
         }
