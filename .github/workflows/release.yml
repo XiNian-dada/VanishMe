@@ -1,0 +1,100 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Create distribution zip
+        run: |
+          cd dist
+          zip -r ../vanishme-v${{ steps.get_version.outputs.VERSION }}.zip .
+          cd ..
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the previous tag
+          PREV_TAG=$(git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1) 2>/dev/null || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            # First release
+            CHANGELOG="Initial release of VanishMe browser extension"
+          else
+            # Generate changelog from commits
+            CHANGELOG=$(git log $PREV_TAG..HEAD --pretty=format:"- %s" | grep -v "Merge pull request" || echo "- Bug fixes and improvements")
+          fi
+
+          # Save to file for multiline output
+          echo "$CHANGELOG" > CHANGELOG.txt
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          cat CHANGELOG.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: vanishme-v${{ steps.get_version.outputs.VERSION }}.zip
+          body: |
+            ## VanishMe v${{ steps.get_version.outputs.VERSION }}
+
+            ### 安装方法 / Installation
+
+            1. 下载 `vanishme-v${{ steps.get_version.outputs.VERSION }}.zip` / Download the zip file
+            2. 解压文件 / Extract the archive
+            3. 在浏览器中打开 `chrome://extensions/` / Open `chrome://extensions/` in your browser
+            4. 启用"开发者模式" / Enable "Developer mode"
+            5. 点击"加载已解压的扩展程序" / Click "Load unpacked"
+            6. 选择解压后的 `dist` 文件夹 / Select the extracted `dist` folder
+
+            ### 更新日志 / Changelog
+
+            ${{ steps.changelog.outputs.CHANGELOG }}
+
+            ### 功能特性 / Features
+
+            - 🌍 地理位置伪装 / Geolocation spoofing
+            - 🕐 时区伪装 / Timezone spoofing
+            - 🌐 语言伪装 / Language spoofing
+            - 🔒 WebRTC 防泄漏 / WebRTC leak protection
+            - 🎯 灵活匹配模式 / Flexible matching modes
+            - ⚡ 快速配置 / Quick presets
+            - 💾 配置管理 / Profile management
+            - 🛡️ 深度反检测 / Anti-detection
+
+            完整文档请查看 README.md / See README.md for full documentation
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vanishme-v${{ steps.get_version.outputs.VERSION }}
+          path: dist/
+          retention-days: 30
