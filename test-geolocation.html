@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VanishMe Geolocation 测试</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #1a1a1a;
+      color: #e0e0e0;
+    }
+    h1 {
+      color: #4caf50;
+    }
+    button {
+      background: #4caf50;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 0;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    .result {
+      background: #252525;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    .label {
+      color: #888;
+      font-weight: 600;
+    }
+    .value {
+      color: #4caf50;
+      font-size: 18px;
+      margin: 5px 0 15px 0;
+    }
+    .info {
+      background: #2d3436;
+      padding: 15px;
+      border-left: 4px solid #4caf50;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧪 VanishMe Geolocation 测试页面</h1>
+
+  <div class="info">
+    <strong>说明：</strong> 这个页面只使用 <code>navigator.geolocation</code> API，
+    这是 VanishMe 能够控制的。如果 VanishMe 工作正常，你会看到配置的假坐标。
+  </div>
+
+  <button onclick="testGeolocation()">测试 Geolocation API</button>
+  <button onclick="testPermission()">测试 Permission API</button>
+
+  <div class="result" id="result" style="display: none;">
+    <div class="label">纬度 (Latitude):</div>
+    <div class="value" id="latitude">-</div>
+
+    <div class="label">经度 (Longitude):</div>
+    <div class="value" id="longitude">-</div>
+
+    <div class="label">精度 (Accuracy):</div>
+    <div class="value" id="accuracy">-</div>
+
+    <div class="label">权限状态:</div>
+    <div class="value" id="permission">-</div>
+  </div>
+
+  <div class="info">
+    <strong>为什么 Google Maps 显示真实位置？</strong><br><br>
+    Google Maps 主要使用 <strong>Wi-Fi 定位</strong> 和 <strong>IP 定位</strong>，
+    它们绕过了 JavaScript Geolocation API。<br><br>
+
+    <strong>VanishMe 只能伪装 JavaScript API</strong>，无法改变：<br>
+    • Wi-Fi 定位（扫描周围 Wi-Fi 热点）<br>
+    • IP 地址定位（需要 VPN）<br>
+    • 蓝牙定位<br>
+    • GPS（手机）<br><br>
+
+    如果你想让 Google Maps 显示假位置，需要：<br>
+    1. 使用 VPN/代理改变 IP<br>
+    2. 禁用 Wi-Fi（如果可能）<br>
+    3. 使用隐身模式清除缓存<br>
+  </div>
+
+  <script>
+    function testGeolocation() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.style.display = 'block';
+
+      if (!navigator.geolocation) {
+        alert('浏览器不支持 Geolocation API');
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          document.getElementById('latitude').textContent = position.coords.latitude;
+          document.getElementById('longitude').textContent = position.coords.longitude;
+          document.getElementById('accuracy').textContent = position.coords.accuracy + ' 米';
+        },
+        (error) => {
+          alert('获取位置失败: ' + error.message);
+        }
+      );
+    }
+
+    function testPermission() {
+      if (!navigator.permissions) {
+        alert('浏览器不支持 Permissions API');
+        return;
+      }
+
+      navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+        document.getElementById('permission').textContent = result.state;
+        document.getElementById('result').style.display = 'block';
+      });
+    }
+  </script>
+</body>
+</html>

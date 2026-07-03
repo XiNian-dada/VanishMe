@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Language Test</title>
+</head>
+<body>
+    <h1>Language Spoof Test</h1>
+    <div id="results"></div>
+
+    <script>
+        const results = document.getElementById('results');
+
+        function addResult(label, value) {
+            const p = document.createElement('p');
+            p.innerHTML = `<strong>${label}:</strong> ${value}`;
+            results.appendChild(p);
+        }
+
+        addResult('navigator.language', navigator.language);
+        addResult('navigator.languages', JSON.stringify(navigator.languages));
+        addResult('navigator.userLanguage', (navigator as any).userLanguage || 'N/A');
+
+        // Test Accept-Language header
+        addResult('Accept-Language (from request headers)', 'Check Network tab');
+
+        // Test Intl API
+        try {
+            const dtf = new Intl.DateTimeFormat();
+            const resolved = dtf.resolvedOptions();
+            addResult('Intl.DateTimeFormat locale', resolved.locale);
+        } catch (e) {
+            addResult('Intl.DateTimeFormat', 'Error: ' + e);
+        }
+
+        // Check if properties look native
+        const desc = Object.getOwnPropertyDescriptor(Navigator.prototype, 'languages');
+        addResult('languages descriptor', desc ? 'exists' : 'missing');
+        if (desc && desc.get) {
+            addResult('languages getter toString', desc.get.toString());
+        }
+    </script>
+</body>
+</html>
