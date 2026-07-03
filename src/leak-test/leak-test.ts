@@ -209,5 +209,9 @@ testGeolocationBtn.addEventListener('click', testGeolocation);
 testWatchPositionBtn.addEventListener('click', testWatchPosition);
 testWebRTCBtn.addEventListener('click', testWebRTC);
 
-// Initialize
-initialize();
+// Initialize - delay to ensure spoofs are installed
+console.log('Leak test: Waiting for spoofs...');
+setTimeout(() => {
+  console.log('Leak test: Running checks now');
+  initialize();
+}, 100);
