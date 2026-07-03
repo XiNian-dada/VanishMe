@@ -36,6 +36,8 @@ const acceptLanguageEl = document.getElementById('acceptLanguage') as HTMLInputE
 const webrtcEnabledEl = document.getElementById('webrtcEnabled') as HTMLInputElement;
 const webrtcPolicyEl = document.getElementById('webrtcPolicy') as HTMLSelectElement;
 
+const canvasEnabledEl = document.getElementById('canvasEnabled') as HTMLInputElement;
+
 const saveBtn = document.getElementById('save') as HTMLButtonElement;
 const openOptionsBtn = document.getElementById('openOptions') as HTMLButtonElement;
 const openLeakTestBtn = document.getElementById('openLeakTest') as HTMLButtonElement;
@@ -92,6 +94,9 @@ async function loadConfig() {
   // WebRTC
   webrtcEnabledEl.checked = currentConfig.webrtc.enabled;
   webrtcPolicyEl.value = currentConfig.webrtc.policy;
+
+  // Canvas
+  canvasEnabledEl.checked = currentConfig.canvas.enabled;
 }
 
 function updateGlobalStatus() {
@@ -163,6 +168,8 @@ async function saveChanges() {
 
     currentConfig.webrtc.enabled = webrtcEnabledEl.checked;
     currentConfig.webrtc.policy = webrtcPolicyEl.value as any;
+
+    currentConfig.canvas.enabled = canvasEnabledEl.checked;
 
     await setConfig(currentConfig);
 

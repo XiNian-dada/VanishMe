@@ -27,6 +27,7 @@ const languagesEl = document.getElementById('languages');
 const acceptLanguageEl = document.getElementById('acceptLanguage');
 const webrtcEnabledEl = document.getElementById('webrtcEnabled');
 const webrtcPolicyEl = document.getElementById('webrtcPolicy');
+const canvasEnabledEl = document.getElementById('canvasEnabled');
 const saveBtn = document.getElementById('save');
 const openOptionsBtn = document.getElementById('openOptions');
 const openLeakTestBtn = document.getElementById('openLeakTest');
@@ -75,6 +76,8 @@ async function loadConfig() {
     // WebRTC
     webrtcEnabledEl.checked = currentConfig.webrtc.enabled;
     webrtcPolicyEl.value = currentConfig.webrtc.policy;
+    // Canvas
+    canvasEnabledEl.checked = currentConfig.canvas.enabled;
 }
 function updateGlobalStatus() {
     globalStatusEl.textContent = globalEnabledEl.checked ? '全局保护已启用' : '全局保护已禁用';
@@ -135,6 +138,7 @@ async function saveChanges() {
         currentConfig.language.acceptLanguage = acceptLanguageEl.value;
         currentConfig.webrtc.enabled = webrtcEnabledEl.checked;
         currentConfig.webrtc.policy = webrtcPolicyEl.value;
+        currentConfig.canvas.enabled = canvasEnabledEl.checked;
         await setConfig(currentConfig);
         // Reload current tab
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
