@@ -169,7 +169,7 @@ export const DEFAULT_CONFIG: PrivacyConfig = {
   canvas: {
     enabled: false, // 默认关闭，需要用户手动启用
     spoofFonts: true,
-    targetFonts: ['Microsoft YaHei', 'SimSun', 'PingFang SC'] // 默认伪装成中文字体
+    targetFonts: ['Microsoft YaHei', 'SimSun', 'SimHei', 'PingFang SC', 'Hiragino Sans GB', 'STHeiti'] // 隐藏这些中文字体，避免被检测
   },
   profile: {
     activeProfileId: 'singapore',

@@ -38,7 +38,7 @@ export interface TimezoneConfig {
 export interface CanvasConfig {
   enabled: boolean;
   spoofFonts: boolean;
-  targetFonts: string[]; // 目标字体列表，如 ["Microsoft YaHei", "SimSun", "SimHei"]
+  targetFonts: string[]; // 要隐藏的字体列表，让检测失败（如隐藏中文字体）
 }
 
 export interface SiteRule {
