@@ -35,6 +35,12 @@ export interface TimezoneConfig {
   offsetMinutes: number;
 }
 
+export interface CanvasConfig {
+  enabled: boolean;
+  spoofFonts: boolean;
+  targetFonts: string[]; // 目标字体列表，如 ["Microsoft YaHei", "SimSun", "SimHei"]
+}
+
 export interface SiteRule {
   enabled: boolean;
 }
@@ -75,6 +81,7 @@ export interface PrivacyConfig {
   webrtc: WebRTCConfig;
   language: LanguageConfig;
   timezone: TimezoneConfig;
+  canvas: CanvasConfig;
   profile: ProfileConfig;
 }
 
@@ -83,4 +90,5 @@ export interface InjectedConfig {
   geolocation: GeolocationConfig;
   language: LanguageConfig;
   timezone: TimezoneConfig;
+  canvas: CanvasConfig;
 }

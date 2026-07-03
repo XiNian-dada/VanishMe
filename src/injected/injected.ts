@@ -5,6 +5,7 @@ import { installPermissionsSpoof } from './permissions';
 import { installTimezoneSpoof } from './timezone';
 import { installLanguageSpoof } from './language';
 import { installAntiDetection } from './anti-detection';
+import { setupCanvasSpoofing } from './canvas-spoofing';
 
 (function() {
   // Prevent duplicate injection
@@ -55,6 +56,10 @@ import { installAntiDetection } from './anti-detection';
         if (config.language && config.language.enabled) {
           console.log('VanishMe: Installing language spoof');
           installLanguageSpoof(config.language);
+        }
+        if (config.canvas && config.canvas.enabled) {
+          console.log('VanishMe: Installing canvas spoof');
+          setupCanvasSpoofing(config.canvas);
         }
         console.log('VanishMe: All spoofs installed successfully');
 

@@ -53,7 +53,8 @@ export async function getEffectiveConfigForUrl(url: string): Promise<InjectedCon
       enabled: false,
       geolocation: config.geolocation,
       language: config.language,
-      timezone: config.timezone
+      timezone: config.timezone,
+      canvas: config.canvas
     };
   }
 
@@ -72,7 +73,8 @@ export async function getEffectiveConfigForUrl(url: string): Promise<InjectedCon
     enabled,
     geolocation: config.geolocation,
     language: config.language,
-    timezone: config.timezone
+    timezone: config.timezone,
+    canvas: config.canvas
   };
 }
 

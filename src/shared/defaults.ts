@@ -166,6 +166,11 @@ export const DEFAULT_CONFIG: PrivacyConfig = {
     timezone: 'Asia/Singapore',
     offsetMinutes: -480
   },
+  canvas: {
+    enabled: false, // 默认关闭，需要用户手动启用
+    spoofFonts: true,
+    targetFonts: ['Microsoft YaHei', 'SimSun', 'PingFang SC'] // 默认伪装成中文字体
+  },
   profile: {
     activeProfileId: 'singapore',
     profiles: DEFAULT_PROFILES

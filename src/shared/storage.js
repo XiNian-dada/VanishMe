@@ -47,7 +47,8 @@ export async function getEffectiveConfigForUrl(url) {
             enabled: false,
             geolocation: config.geolocation,
             language: config.language,
-            timezone: config.timezone
+            timezone: config.timezone,
+            canvas: config.canvas
         };
     }
     // 根据匹配模式和域名列表判断是否启用
@@ -59,7 +60,8 @@ export async function getEffectiveConfigForUrl(url) {
         enabled,
         geolocation: config.geolocation,
         language: config.language,
-        timezone: config.timezone
+        timezone: config.timezone,
+        canvas: config.canvas
     };
 }
 export async function applyProfile(profileId) {
