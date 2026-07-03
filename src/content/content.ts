@@ -1,3 +1,50 @@
+// Domain matching logic (inlined to avoid code splitting)
+function patternToRegex(pattern: string): RegExp {
+  let regexStr = pattern
+    .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '.*');
+  regexStr = '^' + regexStr + '$';
+  return new RegExp(regexStr, 'i');
+}
+
+function matchDomain(domain: string, pattern: string): boolean {
+  if (!domain || !pattern) return false;
+  domain = domain.toLowerCase().trim();
+  pattern = pattern.toLowerCase().trim();
+  domain = domain.replace(/^https?:\/\//, '');
+  pattern = pattern.replace(/^https?:\/\//, '');
+  domain = domain.split(':')[0].split('/')[0];
+  pattern = pattern.split(':')[0].split('/')[0];
+  if (!pattern.includes('*')) {
+    return domain === pattern;
+  }
+  const regex = patternToRegex(pattern);
+  return regex.test(domain);
+}
+
+function matchDomainList(domain: string, patterns: string[]): boolean {
+  if (!domain || !patterns || patterns.length === 0) return false;
+  return patterns.some(pattern => matchDomain(domain, pattern));
+}
+
+function shouldEnableSpoofing(
+  domain: string,
+  matchMode: 'global' | 'whitelist' | 'blacklist',
+  domainList: string[]
+): boolean {
+  if (!domain) return false;
+  switch (matchMode) {
+    case 'global':
+      return true;
+    case 'whitelist':
+      return matchDomainList(domain, domainList);
+    case 'blacklist':
+      return !matchDomainList(domain, domainList);
+    default:
+      return false;
+  }
+}
+
 // Inline the getEffectiveConfigForUrl function to avoid code splitting
 async function getEffectiveConfigForUrl(url: string) {
   const { bpg_config } = await chrome.storage.local.get('bpg_config');
@@ -12,23 +59,36 @@ async function getEffectiveConfigForUrl(url: string) {
     };
   }
 
-  // Check site-specific rules
+  let hostname: string;
   try {
-    const hostname = new URL(url).hostname;
-    const siteRule = bpg_config.siteRules?.[hostname];
-
-    if (siteRule && siteRule.enabled === false) {
-      // Site explicitly disabled
-      return {
-        ...bpg_config,
-        globalEnabled: false
-      };
-    }
-  } catch (error) {
-    // Invalid URL, use global config
+    hostname = new URL(url).hostname;
+  } catch {
+    hostname = '';
   }
 
-  return bpg_config;
+  // Check global enable switch
+  if (!bpg_config.globalEnabled) {
+    return {
+      ...bpg_config,
+      globalEnabled: false
+    };
+  }
+
+  // Check match mode and domain list
+  const matchEnabled = shouldEnableSpoofing(
+    hostname,
+    bpg_config.matchMode || 'global',
+    bpg_config.domainList || []
+  );
+
+  // Check site-specific rules (highest priority)
+  const siteRule = bpg_config.siteRules?.[hostname];
+  const enabled = siteRule ? siteRule.enabled : matchEnabled;
+
+  return {
+    ...bpg_config,
+    globalEnabled: enabled
+  };
 }
 
 // Listen for config requests from injected script
