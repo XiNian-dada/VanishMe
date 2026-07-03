@@ -1,3 +1,5 @@
+import './leak-test.css';
+
 // Geolocation elements
 const geolocationExistsEl = document.getElementById('geolocationExists') as HTMLElement;
 const geolocationResultEl = document.getElementById('geolocationResult') as HTMLElement;

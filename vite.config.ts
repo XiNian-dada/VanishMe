@@ -13,6 +13,21 @@ export default defineConfig({
         {
           src: 'public/icons/*',
           dest: 'icons'
+        },
+        {
+          src: 'src/popup/popup.html',
+          dest: 'popup',
+          rename: 'popup.html'
+        },
+        {
+          src: 'src/options/options.html',
+          dest: 'options',
+          rename: 'options.html'
+        },
+        {
+          src: 'src/leak-test/leak-test.html',
+          dest: 'leak-test',
+          rename: 'leak-test.html'
         }
       ]
     })
@@ -25,19 +40,19 @@ export default defineConfig({
         'background/service-worker': resolve(__dirname, 'src/background/service-worker.ts'),
         'content/content': resolve(__dirname, 'src/content/content.ts'),
         'injected/injected': resolve(__dirname, 'src/injected/injected.ts'),
-        'popup/popup': resolve(__dirname, 'src/popup/popup.html'),
-        'options/options': resolve(__dirname, 'src/options/options.html'),
-        'leak-test/leak-test': resolve(__dirname, 'src/leak-test/leak-test.html')
+        'popup/popup': resolve(__dirname, 'src/popup/popup.ts'),
+        'options/options': resolve(__dirname, 'src/options/options.ts'),
+        'leak-test/leak-test': resolve(__dirname, 'src/leak-test/leak-test.ts')
       },
       output: {
         entryFileNames: '[name].js',
         chunkFileNames: 'chunks/[name].[hash].js',
         assetFileNames: (assetInfo) => {
-          if (assetInfo.name?.endsWith('.html')) {
-            return '[name][extname]';
-          }
-          if (assetInfo.name?.endsWith('.css')) {
-            return '[name][extname]';
+          const name = assetInfo.name || '';
+          if (name.endsWith('.css')) {
+            if (name.includes('popup')) return 'popup/popup.css';
+            if (name.includes('options')) return 'options/options.css';
+            if (name.includes('leak-test')) return 'leak-test/leak-test.css';
           }
           return 'assets/[name].[hash][extname]';
         }

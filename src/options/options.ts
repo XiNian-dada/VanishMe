@@ -1,3 +1,4 @@
+import './options.css';
 import { getConfig, setConfig, resetConfig } from '../shared/storage';
 import { DEFAULT_PROFILES } from '../shared/defaults';
 import { validateProfile } from '../shared/profile';

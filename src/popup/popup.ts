@@ -1,3 +1,4 @@
+import './popup.css';
 import { getConfig, setConfig, resetConfig, applyProfile } from '../shared/storage';
 import type { PrivacyConfig, GeolocationHistory } from '../shared/types';
 
