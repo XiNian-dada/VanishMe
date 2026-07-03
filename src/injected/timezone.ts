@@ -18,7 +18,7 @@ export function installTimezoneSpoof(config: TimezoneConfig): void {
   }
 
   // Spoof Intl.DateTimeFormat.prototype.resolvedOptions
-  if (window.Intl && window.Intl.DateTimeFormat) {
+  if (window.Intl && Intl.DateTimeFormat) {
     const originalResolvedOptions = originals.intlResolvedOptions || Intl.DateTimeFormat.prototype.resolvedOptions;
 
     try {

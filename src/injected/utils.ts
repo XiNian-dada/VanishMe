@@ -28,7 +28,7 @@ export function saveOriginalMethods() {
   originals.dateToLocaleTimeString = Date.prototype.toLocaleTimeString;
 
   // Intl
-  if (window.Intl && window.Intl.DateTimeFormat) {
+  if (window.Intl && Intl.DateTimeFormat) {
     originals.intlResolvedOptions = Intl.DateTimeFormat.prototype.resolvedOptions;
   }
 
