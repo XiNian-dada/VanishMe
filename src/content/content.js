@@ -88,7 +88,8 @@ window.addEventListener('message', async (event) => {
             enabled: config.globalEnabled,
             geolocation: config.geolocation,
             timezone: config.timezone,
-            language: config.language
+            language: config.language,
+            canvas: config.canvas
         };
         window.postMessage({
             type: '__BPG_CONFIG_RESPONSE__',
