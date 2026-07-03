@@ -6,23 +6,94 @@ export function installLanguageSpoof(config: LanguageConfig): void {
 
   const originals = getOriginals();
 
-  // Spoof navigator.language
-  safeDefineProperty(Navigator.prototype, 'language', {
-    get: function() {
-      return config.language;
-    },
-    configurable: true,
-    enumerable: true
-  });
+  // Get the original descriptors before modification
+  const originalLanguageDesc = Object.getOwnPropertyDescriptor(Navigator.prototype, 'language');
+  const originalLanguagesDesc = Object.getOwnPropertyDescriptor(Navigator.prototype, 'languages');
 
-  // Spoof navigator.languages
-  safeDefineProperty(Navigator.prototype, 'languages', {
-    get: function() {
-      return [...config.languages];
-    },
-    configurable: true,
-    enumerable: true
-  });
+  console.log('VanishMe: Original language descriptor:', originalLanguageDesc);
+  console.log('VanishMe: Original languages descriptor:', originalLanguagesDesc);
+
+  // Spoof navigator.language with Proxy wrapper (same strategy as Date.getTimezoneOffset)
+  try {
+    if (originalLanguageDesc && originalLanguageDesc.get) {
+      const originalGetter = originalLanguageDesc.get;
+
+      const proxyGetter = new Proxy(originalGetter, {
+        apply(target, thisArg, args) {
+          // When called, return our fake language
+          return config.language;
+        },
+        get(target, prop) {
+          // When properties accessed (like toString), return original's properties
+          if (prop === 'toString') {
+            return function() { return 'function get language() { [native code] }'; };
+          }
+          return (target as any)[prop];
+        }
+      });
+
+      Object.defineProperty(Navigator.prototype, 'language', {
+        get: proxyGetter as any,
+        configurable: true,
+        enumerable: true
+      });
+
+      console.log('VanishMe: Successfully installed language spoof with Proxy');
+    } else {
+      console.warn('VanishMe: language descriptor has no getter, using fallback');
+      // Fallback: define a simple getter
+      Object.defineProperty(Navigator.prototype, 'language', {
+        get: function() {
+          return config.language;
+        },
+        configurable: true,
+        enumerable: true
+      });
+    }
+  } catch (e) {
+    console.warn('VanishMe: Failed to spoof navigator.language:', e);
+  }
+
+  // Spoof navigator.languages with Proxy wrapper
+  try {
+    if (originalLanguagesDesc && originalLanguagesDesc.get) {
+      const originalGetter = originalLanguagesDesc.get;
+
+      const proxyGetter = new Proxy(originalGetter, {
+        apply(target, thisArg, args) {
+          // When called, return our fake languages array
+          return Object.freeze([...config.languages]);
+        },
+        get(target, prop) {
+          // When properties accessed (like toString), return original's properties
+          if (prop === 'toString') {
+            return function() { return 'function get languages() { [native code] }'; };
+          }
+          return (target as any)[prop];
+        }
+      });
+
+      Object.defineProperty(Navigator.prototype, 'languages', {
+        get: proxyGetter as any,
+        configurable: true,
+        enumerable: true
+      });
+
+      console.log('VanishMe: Successfully installed languages spoof with Proxy');
+    } else {
+      console.warn('VanishMe: languages descriptor has no getter, using fallback');
+      // Fallback: define a simple getter
+      Object.defineProperty(Navigator.prototype, 'languages', {
+        get: function() {
+          return Object.freeze([...config.languages]);
+        },
+        configurable: true,
+        enumerable: true
+      });
+    }
+  } catch (e) {
+    console.warn('VanishMe: Failed to spoof navigator.languages:', e);
+  }
 
   // Spoof navigator.userLanguage (IE legacy)
   if ('userLanguage' in navigator) {

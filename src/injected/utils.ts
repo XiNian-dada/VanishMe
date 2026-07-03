@@ -48,3 +48,41 @@ export function safeDefineProperty(obj: any, prop: string, descriptor: PropertyD
     return false;
   }
 }
+
+// Hide function modification by making it look native
+export function makeNativeFunction(func: Function, originalFunc: Function): Function {
+  const handler = {
+    apply(target: any, thisArg: any, args: any[]) {
+      return func.apply(thisArg, args);
+    },
+    get(target: any, prop: string | symbol) {
+      if (prop === 'toString') {
+        // Return the original function's toString method, not a wrapper
+        return function() { return originalFunc.toString(); };
+      }
+      if (prop === Symbol.toStringTag) {
+        return (originalFunc as any)[Symbol.toStringTag];
+      }
+      if (prop === 'name') {
+        return originalFunc.name;
+      }
+      if (prop === 'length') {
+        return originalFunc.length;
+      }
+      // Return the property from the original function
+      return (originalFunc as any)[prop];
+    }
+  };
+
+  const proxied = new Proxy(func, handler);
+
+  // Try to prevent Proxy detection
+  try {
+    // Make the Proxy look less like a Proxy
+    Object.setPrototypeOf(proxied, originalFunc.constructor.prototype);
+  } catch (e) {
+    // Ignore errors
+  }
+
+  return proxied;
+}

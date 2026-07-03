@@ -1,4 +1,4 @@
-import { getOriginals } from './utils';
+import { getOriginals, makeNativeFunction } from './utils';
 export function installGeolocationSpoof(config) {
     if (!config.enabled)
         return;
@@ -55,7 +55,8 @@ export function installGeolocationSpoof(config) {
     }
     const geolocation = navigator.geolocation;
     // Spoof getCurrentPosition
-    geolocation.getCurrentPosition = function (successCallback, errorCallback, options) {
+    const originalGetCurrentPosition = originals.getCurrentPosition;
+    const spoofedGetCurrentPosition = function (successCallback, errorCallback, options) {
         setTimeout(() => {
             try {
                 const position = createPosition();
@@ -74,8 +75,12 @@ export function installGeolocationSpoof(config) {
             }
         }, 0);
     };
+    geolocation.getCurrentPosition = originalGetCurrentPosition
+        ? makeNativeFunction(spoofedGetCurrentPosition, originalGetCurrentPosition)
+        : spoofedGetCurrentPosition;
     // Spoof watchPosition
-    geolocation.watchPosition = function (successCallback, errorCallback, options) {
+    const originalWatchPosition = originals.watchPosition;
+    const spoofedWatchPosition = function (successCallback, errorCallback, options) {
         const watchId = nextWatchId++;
         // Send initial position
         setTimeout(() => {
@@ -108,12 +113,19 @@ export function installGeolocationSpoof(config) {
         watchIdMap.set(watchId, intervalId);
         return watchId;
     };
+    geolocation.watchPosition = originalWatchPosition
+        ? makeNativeFunction(spoofedWatchPosition, originalWatchPosition)
+        : spoofedWatchPosition;
     // Spoof clearWatch
-    geolocation.clearWatch = function (watchId) {
+    const originalClearWatch = originals.clearWatch;
+    const spoofedClearWatch = function (watchId) {
         const intervalId = watchIdMap.get(watchId);
         if (intervalId !== undefined) {
             clearInterval(intervalId);
             watchIdMap.delete(watchId);
         }
     };
+    geolocation.clearWatch = originalClearWatch
+        ? makeNativeFunction(spoofedClearWatch, originalClearWatch)
+        : spoofedClearWatch;
 }

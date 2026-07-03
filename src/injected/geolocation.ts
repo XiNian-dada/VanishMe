@@ -1,5 +1,5 @@
 import type { GeolocationConfig } from '../shared/types';
-import { getOriginals } from './utils';
+import { getOriginals, makeNativeFunction } from './utils';
 
 export function installGeolocationSpoof(config: GeolocationConfig): void {
   if (!config.enabled) return;
@@ -77,7 +77,8 @@ export function installGeolocationSpoof(config: GeolocationConfig): void {
   const geolocation = navigator.geolocation as any;
 
   // Spoof getCurrentPosition
-  geolocation.getCurrentPosition = function(
+  const originalGetCurrentPosition = originals.getCurrentPosition;
+  const spoofedGetCurrentPosition = function(
     successCallback: PositionCallback,
     errorCallback?: PositionErrorCallback,
     options?: PositionOptions
@@ -99,9 +100,13 @@ export function installGeolocationSpoof(config: GeolocationConfig): void {
       }
     }, 0);
   };
+  geolocation.getCurrentPosition = originalGetCurrentPosition
+    ? makeNativeFunction(spoofedGetCurrentPosition, originalGetCurrentPosition)
+    : spoofedGetCurrentPosition;
 
   // Spoof watchPosition
-  geolocation.watchPosition = function(
+  const originalWatchPosition = originals.watchPosition;
+  const spoofedWatchPosition = function(
     successCallback: PositionCallback,
     errorCallback?: PositionErrorCallback,
     options?: PositionOptions
@@ -139,13 +144,20 @@ export function installGeolocationSpoof(config: GeolocationConfig): void {
     watchIdMap.set(watchId, intervalId);
     return watchId;
   };
+  geolocation.watchPosition = originalWatchPosition
+    ? makeNativeFunction(spoofedWatchPosition, originalWatchPosition)
+    : spoofedWatchPosition;
 
   // Spoof clearWatch
-  geolocation.clearWatch = function(watchId: number) {
+  const originalClearWatch = originals.clearWatch;
+  const spoofedClearWatch = function(watchId: number) {
     const intervalId = watchIdMap.get(watchId);
     if (intervalId !== undefined) {
       clearInterval(intervalId);
       watchIdMap.delete(watchId);
     }
   };
+  geolocation.clearWatch = originalClearWatch
+    ? makeNativeFunction(spoofedClearWatch, originalClearWatch)
+    : spoofedClearWatch;
 }

@@ -5,11 +5,29 @@ export function installTimezoneSpoof(config) {
     const originals = getOriginals();
     const targetTimezone = config.timezone;
     const targetOffset = config.offsetMinutes;
-    // Spoof Date.prototype.getTimezoneOffset
+    // Store the original getTimezoneOffset
+    const originalGetTimezoneOffset = originals.dateGetTimezoneOffset || Date.prototype.getTimezoneOffset;
+    // DO NOT replace Date.prototype.getTimezoneOffset directly
+    // Instead, we'll intercept it by redefining it with a getter that calls our spoofed version
+    // But return the original function reference when inspected
     try {
-        Date.prototype.getTimezoneOffset = function () {
-            return targetOffset;
-        };
+        // Create a wrapper that will be called, but looks native when inspected
+        const nativeLookingWrapper = new Proxy(originalGetTimezoneOffset, {
+            apply(target, thisArg, args) {
+                // When the function is called, return our fake offset
+                return targetOffset;
+            },
+            get(target, prop) {
+                // When properties are accessed (like toString), return the original's properties
+                // This makes Function.prototype.toString.call(wrapper) return "[native code]"
+                if (prop === 'toString') {
+                    return function () { return 'function getTimezoneOffset() { [native code] }'; };
+                }
+                return target[prop];
+            }
+        });
+        // Replace the method with our proxy
+        Date.prototype.getTimezoneOffset = nativeLookingWrapper;
     }
     catch (error) {
         console.warn('Failed to spoof getTimezoneOffset:', error);
