@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VanishMe Leak Test</title>
+  <link rel="stylesheet" href="leak-test.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>VanishMe Leak Test</h1>
+      <p class="subtitle">View information accessible to web pages</p>
+    </header>
+
+    <section class="test-section">
+      <h2>Geolocation</h2>
+      <div class="test-content">
+        <div class="test-item">
+          <span class="label">navigator.geolocation exists:</span>
+          <span id="geolocationExists" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">getCurrentPosition result:</span>
+          <span id="geolocationResult" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">Latitude:</span>
+          <span id="latitude" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">Longitude:</span>
+          <span id="longitude" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">Accuracy:</span>
+          <span id="accuracy" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">Permission status:</span>
+          <span id="geolocationPermission" class="value">-</span>
+        </div>
+        <button id="testGeolocation" class="btn-primary">Test Geolocation</button>
+        <button id="testWatchPosition" class="btn-secondary">Test watchPosition</button>
+      </div>
+    </section>
+
+    <section class="test-section">
+      <h2>Language</h2>
+      <div class="test-content">
+        <div class="test-item">
+          <span class="label">navigator.language:</span>
+          <span id="navigatorLanguage" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">navigator.languages:</span>
+          <span id="navigatorLanguages" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">Intl locale:</span>
+          <span id="intlLocale" class="value">-</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="test-section">
+      <h2>Timezone</h2>
+      <div class="test-content">
+        <div class="test-item">
+          <span class="label">Intl.DateTimeFormat timezone:</span>
+          <span id="intlTimezone" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">getTimezoneOffset():</span>
+          <span id="timezoneOffset" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">Date.toString():</span>
+          <span id="dateToString" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">Date.toLocaleString():</span>
+          <span id="dateToLocaleString" class="value">-</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="test-section">
+      <h2>WebRTC</h2>
+      <div class="test-content">
+        <div class="test-item">
+          <span class="label">RTCPeerConnection exists:</span>
+          <span id="rtcExists" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">ICE candidates:</span>
+          <span id="iceCandidates" class="value">-</span>
+        </div>
+        <button id="testWebRTC" class="btn-primary">Test WebRTC</button>
+        <p class="note">Note: Limited detection without external STUN servers</p>
+      </div>
+    </section>
+
+    <section class="test-section">
+      <h2>Navigator Information</h2>
+      <div class="test-content">
+        <div class="test-item">
+          <span class="label">navigator.platform:</span>
+          <span id="platform" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">navigator.hardwareConcurrency:</span>
+          <span id="hardwareConcurrency" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">navigator.deviceMemory:</span>
+          <span id="deviceMemory" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">navigator.userAgent:</span>
+          <span id="userAgent" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">screen.width × height:</span>
+          <span id="screenSize" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">screen.colorDepth:</span>
+          <span id="colorDepth" class="value">-</span>
+        </div>
+        <div class="test-item">
+          <span class="label">devicePixelRatio:</span>
+          <span id="devicePixelRatio" class="value">-</span>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <p class="disclaimer">
+        This page displays information that web pages can access through JavaScript.
+        VanishMe spoofs some of these values at the JavaScript layer but cannot guarantee complete anonymity.
+      </p>
+    </footer>
+  </div>
+
+  <script type="module" src="leak-test.js"></script>
+</body>
+</html>
