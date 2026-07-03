@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,124 +15,125 @@
           <input type="checkbox" id="globalEnabled">
           <span class="slider"></span>
         </label>
-        <span id="globalStatus">Global Protection</span>
+        <span id="globalStatus">全局保护</span>
       </div>
     </header>
 
     <section class="site-status">
       <div class="site-info">
-        <span class="label">Current site:</span>
+        <span class="label">当前网站：</span>
         <span id="currentSite">-</span>
       </div>
       <div class="site-actions">
-        <button id="enableSite" class="btn-secondary">Enable</button>
-        <button id="disableSite" class="btn-secondary">Disable</button>
+        <button id="enableSite" class="btn-secondary">启用</button>
+        <button id="disableSite" class="btn-secondary">禁用</button>
       </div>
     </section>
 
     <section class="profile-section">
-      <h2>Quick Profile</h2>
+      <h2>快速配置</h2>
       <select id="profileSelect" class="input">
-        <option value="">Custom</option>
-        <option value="singapore">Singapore</option>
-        <option value="japan">Japan</option>
-        <option value="germany">Germany</option>
-        <option value="united-states">United States</option>
-        <option value="china">China</option>
+        <option value="">自定义</option>
+        <option value="singapore">新加坡</option>
+        <option value="japan">日本</option>
+        <option value="germany">德国</option>
+        <option value="united-states">美国</option>
+        <option value="china">中国</option>
       </select>
-      <button id="applyProfile" class="btn-primary">Apply Profile</button>
+      <button id="applyProfile" class="btn-primary">应用配置</button>
     </section>
 
     <section class="config-section">
       <details open>
-        <summary>Geolocation</summary>
+        <summary>地理位置</summary>
         <div class="config-content">
           <label class="checkbox-label">
             <input type="checkbox" id="geolocationEnabled">
-            <span>Enabled</span>
+            <span>启用</span>
           </label>
           <div class="input-group">
-            <label>Latitude:</label>
+            <label>纬度：</label>
             <input type="number" id="latitude" class="input" step="any" min="-90" max="90">
           </div>
           <div class="input-group">
-            <label>Longitude:</label>
+            <label>经度：</label>
             <input type="number" id="longitude" class="input" step="any" min="-180" max="180">
           </div>
           <div class="input-group">
-            <label>Accuracy (m):</label>
+            <label>精度 (米)：</label>
             <input type="number" id="accuracy" class="input" step="1" min="1">
           </div>
           <label class="checkbox-label">
             <input type="checkbox" id="randomize">
-            <span>Randomize</span>
+            <span>随机偏移</span>
           </label>
           <div class="input-group">
-            <label>Random radius (m):</label>
+            <label>随机半径 (米)：</label>
             <input type="number" id="randomRadiusMeters" class="input" step="1" min="0">
           </div>
           <label class="checkbox-label">
             <input type="checkbox" id="spoofPermission">
-            <span>Spoof permission</span>
+            <span>伪装权限</span>
           </label>
-          <button id="saveCoordinate" class="btn-secondary btn-sm">Save Current</button>
+          <button id="saveCoordinate" class="btn-secondary btn-sm">保存当前坐标</button>
+          <button id="getFromIP" class="btn-secondary btn-sm">从 IP 获取位置</button>
         </div>
       </details>
 
       <details>
-        <summary>Timezone</summary>
+        <summary>时区</summary>
         <div class="config-content">
           <label class="checkbox-label">
             <input type="checkbox" id="timezoneEnabled">
-            <span>Enabled</span>
+            <span>启用</span>
           </label>
           <div class="input-group">
-            <label>Timezone:</label>
+            <label>时区：</label>
             <input type="text" id="timezone" class="input" placeholder="Asia/Singapore">
           </div>
           <div class="input-group">
-            <label>Offset (min):</label>
+            <label>时差 (分钟)：</label>
             <input type="number" id="offsetMinutes" class="input" step="1">
           </div>
         </div>
       </details>
 
       <details>
-        <summary>Language</summary>
+        <summary>语言</summary>
         <div class="config-content">
           <label class="checkbox-label">
             <input type="checkbox" id="languageEnabled">
-            <span>Enabled</span>
+            <span>启用</span>
           </label>
           <div class="input-group">
-            <label>Language:</label>
+            <label>主语言：</label>
             <input type="text" id="language" class="input" placeholder="en-US">
           </div>
           <div class="input-group">
-            <label>Languages:</label>
+            <label>语言列表：</label>
             <input type="text" id="languages" class="input" placeholder="en-US, en">
           </div>
           <div class="input-group">
-            <label>Accept-Language:</label>
+            <label>Accept-Language：</label>
             <input type="text" id="acceptLanguage" class="input" placeholder="en-US,en;q=0.9">
           </div>
         </div>
       </details>
 
       <details>
-        <summary>WebRTC</summary>
+        <summary>WebRTC 防泄漏</summary>
         <div class="config-content">
           <label class="checkbox-label">
             <input type="checkbox" id="webrtcEnabled">
-            <span>Enabled</span>
+            <span>启用</span>
           </label>
           <div class="input-group">
-            <label>Policy:</label>
+            <label>策略：</label>
             <select id="webrtcPolicy" class="input">
-              <option value="default">Default</option>
-              <option value="default_public_interface_only">Public interface only</option>
-              <option value="default_public_and_private_interfaces">Public and private</option>
-              <option value="disable_non_proxied_udp">Disable non-proxied UDP</option>
+              <option value="default">默认</option>
+              <option value="default_public_interface_only">仅公网接口</option>
+              <option value="default_public_and_private_interfaces">公网和私网</option>
+              <option value="disable_non_proxied_udp">禁用非代理 UDP（推荐）</option>
             </select>
           </div>
         </div>
@@ -140,9 +141,9 @@
     </section>
 
     <footer>
-      <button id="save" class="btn-primary">Save</button>
-      <button id="openLeakTest" class="btn-secondary">Leak Test</button>
-      <button id="reset" class="btn-secondary">Reset</button>
+      <button id="save" class="btn-primary">保存</button>
+      <button id="openLeakTest" class="btn-secondary">隐私检测</button>
+      <button id="reset" class="btn-secondary">重置</button>
     </footer>
   </div>
 

@@ -20,6 +20,7 @@ const randomizeEl = document.getElementById('randomize') as HTMLInputElement;
 const randomRadiusMetersEl = document.getElementById('randomRadiusMeters') as HTMLInputElement;
 const spoofPermissionEl = document.getElementById('spoofPermission') as HTMLInputElement;
 const saveCoordinateBtn = document.getElementById('saveCoordinate') as HTMLButtonElement;
+const getFromIPBtn = document.getElementById('getFromIP') as HTMLButtonElement;
 
 const timezoneEnabledEl = document.getElementById('timezoneEnabled') as HTMLInputElement;
 const timezoneEl = document.getElementById('timezone') as HTMLInputElement;
@@ -87,7 +88,7 @@ async function loadConfig() {
 }
 
 function updateGlobalStatus() {
-  globalStatusEl.textContent = globalEnabledEl.checked ? 'Global Protection Enabled' : 'Global Protection Disabled';
+  globalStatusEl.textContent = globalEnabledEl.checked ? '全局保护已启用' : '全局保护已禁用';
 }
 
 async function saveChanges() {
@@ -105,19 +106,19 @@ async function saveChanges() {
     const offset = parseInt(offsetMinutesEl.value);
 
     if (lat < -90 || lat > 90) {
-      alert('Latitude must be between -90 and 90');
+      alert('纬度必须在 -90 到 90 之间');
       return;
     }
     if (lon < -180 || lon > 180) {
-      alert('Longitude must be between -180 and 180');
+      alert('经度必须在 -180 到 180 之间');
       return;
     }
     if (acc <= 0) {
-      alert('Accuracy must be greater than 0');
+      alert('精度必须大于 0');
       return;
     }
     if (offset < -840 || offset > 720) {
-      alert('Offset minutes must be between -840 and 720');
+      alert('时差必须在 -840 到 720 分钟之间');
       return;
     }
 
@@ -154,7 +155,7 @@ async function saveChanges() {
     window.close();
   } catch (error) {
     console.error('Failed to save config:', error);
-    alert('Failed to save configuration');
+    alert('保存配置失败');
   }
 }
 
@@ -167,7 +168,7 @@ async function handleApplyProfile() {
     await loadConfig();
   } catch (error) {
     console.error('Failed to apply profile:', error);
-    alert('Failed to apply profile');
+    alert('应用配置失败');
   }
 }
 
@@ -205,7 +206,7 @@ async function handleSaveCoordinate() {
   const acc = parseFloat(accuracyEl.value);
 
   if (isNaN(lat) || isNaN(lon) || isNaN(acc)) {
-    alert('Invalid coordinates');
+    alert('无效的坐标');
     return;
   }
 
@@ -226,7 +227,7 @@ async function handleSaveCoordinate() {
     existingHistory.unshift(history);
     currentConfig.geolocation.history = existingHistory.slice(0, 10);
     await setConfig(currentConfig);
-    alert('Coordinate saved');
+    alert('坐标已保存');
   }
 }
 
@@ -237,9 +238,52 @@ function handleOpenLeakTest() {
 }
 
 async function handleReset() {
-  if (confirm('Reset all settings to defaults?')) {
+  if (confirm('重置所有设置为默认值？')) {
     await resetConfig();
     await loadConfig();
+  }
+}
+
+async function handleGetFromIP() {
+  try {
+    getFromIPBtn.disabled = true;
+    getFromIPBtn.textContent = '获取中...';
+
+    // Use ipwhois.app API (free, no API key required)
+    const response = await fetch('https://ipwhois.app/json/');
+    if (!response.ok) {
+      throw new Error('Failed to fetch IP info');
+    }
+
+    const data = await response.json();
+
+    if (data.latitude && data.longitude) {
+      latitudeEl.value = data.latitude.toString();
+      longitudeEl.value = data.longitude.toString();
+
+      // Set timezone if available
+      if (data.timezone) {
+        timezoneEl.value = data.timezone;
+
+        // Calculate offset from timezone name
+        // This is approximate - user should verify
+        const now = new Date();
+        const tzDate = new Date(now.toLocaleString('en-US', { timeZone: data.timezone }));
+        const localDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+        const offsetMinutes = Math.round((localDate.getTime() - tzDate.getTime()) / 60000);
+        offsetMinutesEl.value = offsetMinutes.toString();
+      }
+
+      alert(`已从 IP 获取位置信息：\n${data.city}, ${data.country}\n纬度: ${data.latitude}\n经度: ${data.longitude}\n时区: ${data.timezone || 'N/A'}`);
+    } else {
+      throw new Error('No location data in response');
+    }
+  } catch (error) {
+    console.error('Failed to get location from IP:', error);
+    alert('从 IP 获取位置失败，请手动输入或稍后重试');
+  } finally {
+    getFromIPBtn.disabled = false;
+    getFromIPBtn.textContent = '从 IP 获取位置';
   }
 }
 
@@ -249,6 +293,7 @@ applyProfileBtn.addEventListener('click', handleApplyProfile);
 enableSiteBtn.addEventListener('click', handleEnableSite);
 disableSiteBtn.addEventListener('click', handleDisableSite);
 saveCoordinateBtn.addEventListener('click', handleSaveCoordinate);
+getFromIPBtn.addEventListener('click', handleGetFromIP);
 saveBtn.addEventListener('click', saveChanges);
 openLeakTestBtn.addEventListener('click', handleOpenLeakTest);
 resetBtn.addEventListener('click', handleReset);
