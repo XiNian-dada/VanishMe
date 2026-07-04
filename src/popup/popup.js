@@ -1,5 +1,6 @@
 import './popup.css';
 import { getConfig, setConfig, resetConfig, applyProfile } from '../shared/storage';
+import { DEFAULT_CONFIG } from '../shared/defaults';
 // DOM elements
 const globalEnabledEl = document.getElementById('globalEnabled');
 const globalStatusEl = document.getElementById('globalStatus');
@@ -28,6 +29,7 @@ const acceptLanguageEl = document.getElementById('acceptLanguage');
 const webrtcEnabledEl = document.getElementById('webrtcEnabled');
 const webrtcPolicyEl = document.getElementById('webrtcPolicy');
 const canvasEnabledEl = document.getElementById('canvasEnabled');
+const resetFontsBtn = document.getElementById('resetFonts');
 const saveBtn = document.getElementById('save');
 const openOptionsBtn = document.getElementById('openOptions');
 const openLeakTestBtn = document.getElementById('openLeakTest');
@@ -317,12 +319,36 @@ async function handleGetFromIP() {
         getFromIPBtn.textContent = '从 IP 获取位置';
     }
 }
+async function handleResetFonts() {
+    try {
+        resetFontsBtn.disabled = true;
+        resetFontsBtn.textContent = '更新中...';
+        // Force update targetFonts to the latest default list
+        currentConfig.canvas.targetFonts = DEFAULT_CONFIG.canvas.targetFonts;
+        await setConfig(currentConfig);
+        // Reload current tab
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab?.id) {
+            chrome.tabs.reload(tab.id);
+        }
+        alert('字体列表已更新！请刷新页面测试。');
+    }
+    catch (error) {
+        console.error('Failed to reset fonts:', error);
+        alert('更新字体列表失败');
+    }
+    finally {
+        resetFontsBtn.disabled = false;
+        resetFontsBtn.textContent = '更新到最新字体列表';
+    }
+}
 // Event listeners
 globalEnabledEl.addEventListener('change', updateGlobalStatus);
 enableSiteBtn.addEventListener('click', handleEnableSite);
 disableSiteBtn.addEventListener('click', handleDisableSite);
 saveCoordinateBtn.addEventListener('click', handleSaveCoordinate);
 getFromIPBtn.addEventListener('click', handleGetFromIP);
+resetFontsBtn.addEventListener('click', handleResetFonts);
 saveBtn.addEventListener('click', saveChanges);
 openOptionsBtn.addEventListener('click', handleOpenOptions);
 openOptionsHeaderBtn.addEventListener('click', handleOpenOptions);

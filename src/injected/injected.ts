@@ -14,7 +14,36 @@ import { setupCanvasSpoofing } from './canvas-spoofing';
   }
   (window as any).__BPG_INJECTED__ = true;
 
-  console.log('VanishMe: Injected script loaded, requesting config...');
+  console.log('VanishMe: Injected script loaded, installing Canvas anti-detection immediately...');
+
+  // CRITICAL: Install Canvas spoofing IMMEDIATELY with default config
+  // This must happen before any page script runs to detect fonts
+  // Font list is inlined to avoid import issues in MAIN world
+  try {
+    setupCanvasSpoofing({
+      enabled: true,
+      spoofFonts: true,
+      targetFonts: [
+        // Windows 简体中文字体
+        'Microsoft YaHei', 'Microsoft YaHei UI', 'SimSun', 'NSimSun', 'SimHei',
+        'KaiTi', 'FangSong', 'DengXian',
+        // macOS 简体中文字体
+        'PingFang SC', 'Hiragino Sans GB', 'STHeiti', 'STSong', 'Songti SC',
+        // 开源简体中文字体
+        'Source Han Sans CN', 'Source Han Sans SC',
+        'Noto Sans CJK SC', 'Noto Serif CJK SC',
+        'WenQuanYi Micro Hei', 'WenQuanYi Zen Hei',
+        // 繁体中文字体
+        'Microsoft JhengHei', 'PMingLiU', 'MingLiU', 'DFKai-SB',
+        'PingFang TC', 'PingFang HK', 'Source Han Sans TW', 'Noto Sans CJK TC'
+      ]
+    });
+    console.log('VanishMe: Canvas anti-detection installed at document_start');
+  } catch (error) {
+    console.error('VanishMe: Failed to install early Canvas spoof:', error);
+  }
+
+  console.log('VanishMe: Requesting full config...');
 
   // Request config from content script
   let configReceived = false;
@@ -58,8 +87,8 @@ import { setupCanvasSpoofing } from './canvas-spoofing';
           installLanguageSpoof(config.language);
         }
         if (config.canvas && config.canvas.enabled) {
-          console.log('VanishMe: Installing canvas spoof');
-          setupCanvasSpoofing(config.canvas);
+          console.log('VanishMe: Canvas already installed, skipping...');
+          // Canvas spoofing was already installed at document_start, no need to reinstall
         }
         console.log('VanishMe: All spoofs installed successfully');
 
