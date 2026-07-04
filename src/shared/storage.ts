@@ -80,6 +80,7 @@ export async function getEffectiveConfigForUrl(url: string): Promise<InjectedCon
   if (!config.globalEnabled) {
     return {
       enabled: false,
+      debugMode: config.debugMode || false,
       geolocation: config.geolocation,
       language: config.language,
       timezone: config.timezone,
@@ -100,6 +101,7 @@ export async function getEffectiveConfigForUrl(url: string): Promise<InjectedCon
 
   return {
     enabled,
+    debugMode: config.debugMode || false,
     geolocation: config.geolocation,
     language: config.language,
     timezone: config.timezone,

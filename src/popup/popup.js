@@ -3,6 +3,7 @@ import { getConfig, setConfig, resetConfig, applyProfile } from '../shared/stora
 import { DEFAULT_CONFIG } from '../shared/defaults';
 // DOM elements
 const globalEnabledEl = document.getElementById('globalEnabled');
+const debugModeEl = document.getElementById('debugMode');
 const globalStatusEl = document.getElementById('globalStatus');
 const currentSiteEl = document.getElementById('currentSite');
 const enableSiteBtn = document.getElementById('enableSite');
@@ -66,6 +67,7 @@ async function loadConfig() {
     }
     // Populate UI
     globalEnabledEl.checked = currentConfig.globalEnabled;
+    debugModeEl.checked = currentConfig.debugMode || false;
     updateGlobalStatus();
     // Match mode
     matchModeEl.value = currentConfig.matchMode || 'global';
@@ -137,6 +139,7 @@ async function saveChanges() {
         // UTC+8 (Singapore) = +8 hours = -480 minutes offset
         const offsetMinutes = -utcOffsetHours * 60;
         currentConfig.globalEnabled = globalEnabledEl.checked;
+        currentConfig.debugMode = debugModeEl.checked;
         currentConfig.matchMode = matchModeEl.value;
         currentConfig.domainList = domainListArray;
         currentConfig.geolocation.enabled = geolocationEnabledEl.checked;
@@ -377,6 +380,7 @@ globalEnabledEl.addEventListener('change', () => {
     updateGlobalStatus();
     saveChanges();
 });
+debugModeEl.addEventListener('change', () => saveChanges());
 matchModeEl.addEventListener('blur', () => saveChanges());
 domainListEl.addEventListener('blur', () => saveChanges());
 enableSiteBtn.addEventListener('click', handleEnableSite);

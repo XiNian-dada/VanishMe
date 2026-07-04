@@ -74,6 +74,7 @@ export async function getEffectiveConfigForUrl(url) {
     if (!config.globalEnabled) {
         return {
             enabled: false,
+            debugMode: config.debugMode || false,
             geolocation: config.geolocation,
             language: config.language,
             timezone: config.timezone,
@@ -87,6 +88,7 @@ export async function getEffectiveConfigForUrl(url) {
     const enabled = siteRule ? siteRule.enabled : matchEnabled;
     return {
         enabled,
+        debugMode: config.debugMode || false,
         geolocation: config.geolocation,
         language: config.language,
         timezone: config.timezone,

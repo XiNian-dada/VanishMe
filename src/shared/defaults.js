@@ -97,6 +97,7 @@ export const DEFAULT_PROFILES = [
 ];
 export const DEFAULT_CONFIG = {
     globalEnabled: true,
+    debugMode: false, // 默认关闭调试日志
     matchMode: 'whitelist', // 默认使用白名单模式
     domainList: [
         // AI 网站

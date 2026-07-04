@@ -19,6 +19,10 @@
           <input type="checkbox" id="globalEnabled">
           <span>启用全局保护</span>
         </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="debugMode">
+          <span>调试模式（控制台输出详细日志）</span>
+        </label>
       </div>
     </section>
 
@@ -55,6 +59,9 @@
       </div>
 
       <div class="tab-content active" data-tab="geolocation">
+        <div class="action-buttons" style="margin-bottom: 16px;">
+          <button id="getFromIP" class="btn-primary" style="width: 100%;">🌐 从 IP 自动配置（地理位置 + 时区 + 语言）</button>
+        </div>
         <label class="checkbox-label">
           <input type="checkbox" id="geolocationEnabled">
           <span>启用地理位置伪装</span>
@@ -85,9 +92,7 @@
           <input type="checkbox" id="spoofPermission">
           <span>伪装地理位置权限</span>
         </label>
-        <div class="action-buttons">
-          <button id="getFromIP" class="btn-secondary">从 IP 获取位置</button>
-        </div>
+      </div>
       </div>
 
       <div class="tab-content" data-tab="timezone">

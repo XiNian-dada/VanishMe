@@ -100,6 +100,7 @@ export const DEFAULT_PROFILES: Profile[] = [
 
 export const DEFAULT_CONFIG: PrivacyConfig = {
   globalEnabled: true,
+  debugMode: false, // 默认关闭调试日志
   matchMode: 'whitelist', // 默认使用白名单模式
   domainList: [
     // AI 网站

@@ -14,7 +14,16 @@ import { setupCanvasSpoofing } from './canvas-spoofing';
   }
   (window as any).__BPG_INJECTED__ = true;
 
-  console.log('VanishMe: Injected script loaded, installing Canvas anti-detection immediately...');
+  let debugMode = false; // Will be updated when config is received
+
+  // Debug logger - only logs when debugMode is enabled
+  const log = (...args: any[]) => {
+    if (debugMode) {
+      console.log('[VanishMe]', ...args);
+    }
+  };
+
+  log('Injected script loaded, installing Canvas anti-detection immediately...');
 
   // CRITICAL: Install Canvas spoofing IMMEDIATELY with default config
   // This must happen before any page script runs to detect fonts
@@ -38,12 +47,12 @@ import { setupCanvasSpoofing } from './canvas-spoofing';
         'PingFang TC', 'PingFang HK', 'Source Han Sans TW', 'Noto Sans CJK TC'
       ]
     });
-    console.log('VanishMe: Canvas anti-detection installed at document_start');
+    log('Canvas anti-detection installed at document_start');
   } catch (error) {
     console.error('VanishMe: Failed to install early Canvas spoof:', error);
   }
 
-  console.log('VanishMe: Requesting full config...');
+  log('Requesting full config...');
 
   // Request config from content script
   let configReceived = false;
@@ -56,14 +65,17 @@ import { setupCanvasSpoofing } from './canvas-spoofing';
 
       const config: InjectedConfig = event.data.config;
 
-      console.log('VanishMe: Config received', config);
+      // Update debug mode
+      debugMode = config.debugMode || false;
+
+      log('Config received', config);
 
       if (!config || !config.enabled) {
-        console.log('VanishMe: Extension is disabled');
+        log('Extension is disabled');
         return;
       }
 
-      console.log('VanishMe: Starting spoofing installation...');
+      log('Starting spoofing installation...');
 
       // Install anti-detection first
       installAntiDetection();
@@ -74,23 +86,23 @@ import { setupCanvasSpoofing } from './canvas-spoofing';
       // Install spoofs
       try {
         if (config.geolocation && config.geolocation.enabled) {
-          console.log('VanishMe: Installing geolocation spoof');
+          log('Installing geolocation spoof');
           installGeolocationSpoof(config.geolocation);
           installPermissionsSpoof(config.geolocation);
         }
         if (config.timezone && config.timezone.enabled) {
-          console.log('VanishMe: Installing timezone spoof');
+          log('Installing timezone spoof');
           installTimezoneSpoof(config.timezone);
         }
         if (config.language && config.language.enabled) {
-          console.log('VanishMe: Installing language spoof');
+          log('Installing language spoof');
           installLanguageSpoof(config.language);
         }
         if (config.canvas && config.canvas.enabled) {
-          console.log('VanishMe: Canvas already installed, skipping...');
+          log('Canvas already installed, skipping...');
           // Canvas spoofing was already installed at document_start, no need to reinstall
         }
-        console.log('VanishMe: All spoofs installed successfully');
+        log('All spoofs installed successfully');
 
         // Apply spoofs to all future iframes
         try {
@@ -132,16 +144,16 @@ import { setupCanvasSpoofing } from './canvas-spoofing';
 
         // Verify timezone spoof is working
         if (config.timezone && config.timezone.enabled) {
-          console.log('VanishMe: Verifying timezone spoof...');
+          log('Verifying timezone spoof...');
           try {
             const testOffset = new Date().getTimezoneOffset();
-            console.log('VanishMe: getTimezoneOffset() returns:', testOffset);
+            log('getTimezoneOffset() returns:', testOffset);
 
             const testIntl = new Intl.DateTimeFormat().resolvedOptions();
-            console.log('VanishMe: Intl.resolvedOptions() returns:', testIntl);
+            log('Intl.resolvedOptions() returns:', testIntl);
 
             const testToString = new Date().toString();
-            console.log('VanishMe: Date.toString() returns:', testToString);
+            log('Date.toString() returns:', testToString);
           } catch (e) {
             console.error('VanishMe: Verification failed:', e);
           }

@@ -4,6 +4,7 @@ import { DEFAULT_PROFILES } from '../shared/defaults';
 let currentConfig;
 // DOM elements
 const globalEnabledEl = document.getElementById('globalEnabled');
+const debugModeEl = document.getElementById('debugMode');
 const matchModeEl = document.getElementById('matchMode');
 const domainListEl = document.getElementById('domainList');
 // Current config elements
@@ -43,6 +44,7 @@ async function loadConfig() {
     currentConfig = await getConfig();
     // Global settings
     globalEnabledEl.checked = currentConfig.globalEnabled;
+    debugModeEl.checked = currentConfig.debugMode || false;
     // Match mode
     matchModeEl.value = currentConfig.matchMode || 'global';
     domainListEl.value = (currentConfig.domainList || []).join('\n');
@@ -269,36 +271,59 @@ async function handleGetFromIP() {
     try {
         getFromIPBtn.disabled = true;
         getFromIPBtn.textContent = '获取中...';
+        // Use ipwhois.app API (free, no API key required)
         const response = await fetch('https://ipwhois.app/json/');
         if (!response.ok) {
             throw new Error('Failed to fetch IP info');
         }
         const data = await response.json();
-        if (data.latitude && data.longitude) {
-            latitudeEl.value = data.latitude.toString();
-            longitudeEl.value = data.longitude.toString();
-            if (data.timezone) {
-                timezoneEl.value = data.timezone;
-                const now = new Date();
-                const tzDate = new Date(now.toLocaleString('en-US', { timeZone: data.timezone }));
-                const utcDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
-                const offsetMinutes = Math.round((utcDate.getTime() - tzDate.getTime()) / 60000);
-                const utcOffsetHours = -offsetMinutes / 60;
-                utcOffsetEl.value = utcOffsetHours.toString();
-            }
-            alert(`已从 IP 获取位置信息：\n${data.city}, ${data.country}\n纬度: ${data.latitude}\n经度: ${data.longitude}\n时区: ${data.timezone || 'N/A'}`);
-        }
-        else {
+        if (!data.success || !data.latitude || !data.longitude) {
             throw new Error('No location data in response');
         }
+        // 1. Fill geolocation
+        latitudeEl.value = data.latitude.toString();
+        longitudeEl.value = data.longitude.toString();
+        geolocationEnabledEl.checked = true;
+        // 2. Fill timezone
+        if (data.timezone) {
+            timezoneEl.value = data.timezone;
+            timezoneEnabledEl.checked = true;
+            // Calculate offset from timezone_gmtOffset (in seconds)
+            // timezone_gmtOffset = -25200 (LA, UTC-7) -> -25200 / 3600 = -7
+            const utcOffsetHours = data.timezone_gmtOffset / 3600;
+            utcOffsetEl.value = utcOffsetHours.toString();
+        }
+        // 3. Fill language based on country code
+        if (data.country_code) {
+            const languageMap = {
+                'US': { language: 'en-US', languages: ['en-US', 'en'], acceptLanguage: 'en-US,en;q=0.9' },
+                'GB': { language: 'en-GB', languages: ['en-GB', 'en'], acceptLanguage: 'en-GB,en;q=0.9' },
+                'CN': { language: 'zh-CN', languages: ['zh-CN', 'zh'], acceptLanguage: 'zh-CN,zh;q=0.9' },
+                'JP': { language: 'ja-JP', languages: ['ja-JP', 'ja'], acceptLanguage: 'ja-JP,ja;q=0.9' },
+                'KR': { language: 'ko-KR', languages: ['ko-KR', 'ko'], acceptLanguage: 'ko-KR,ko;q=0.9' },
+                'DE': { language: 'de-DE', languages: ['de-DE', 'de'], acceptLanguage: 'de-DE,de;q=0.9' },
+                'FR': { language: 'fr-FR', languages: ['fr-FR', 'fr'], acceptLanguage: 'fr-FR,fr;q=0.9' },
+                'SG': { language: 'en-SG', languages: ['en-SG', 'en'], acceptLanguage: 'en-SG,en;q=0.9' },
+                'TW': { language: 'zh-TW', languages: ['zh-TW', 'zh'], acceptLanguage: 'zh-TW,zh;q=0.9' },
+                'HK': { language: 'zh-HK', languages: ['zh-HK', 'zh'], acceptLanguage: 'zh-HK,zh;q=0.9' },
+            };
+            const langConfig = languageMap[data.country_code] || { language: 'en-US', languages: ['en-US', 'en'], acceptLanguage: 'en-US,en;q=0.9' };
+            languageEl.value = langConfig.language;
+            languagesEl.value = langConfig.languages.join(', ');
+            acceptLanguageEl.value = langConfig.acceptLanguage;
+            languageEnabledEl.checked = true;
+        }
+        // 4. Auto-save
+        await saveSettings();
+        alert(`已从 IP 获取并保存配置：\n${data.city}, ${data.country}\n纬度: ${data.latitude}\n经度: ${data.longitude}\n时区: ${data.timezone || 'N/A'}`);
     }
     catch (error) {
-        console.error('Failed to get location from IP:', error);
-        alert('从 IP 获取位置失败，请手动输入或稍后重试');
+        console.error('Failed to get config from IP:', error);
+        alert('从 IP 获取配置失败，请手动输入或稍后重试');
     }
     finally {
         getFromIPBtn.disabled = false;
-        getFromIPBtn.textContent = '从 IP 获取位置';
+        getFromIPBtn.textContent = '🌐 从 IP 自动配置（地理位置 + 时区 + 语言）';
     }
 }
 async function saveSettings() {
@@ -336,6 +361,7 @@ async function saveSettings() {
         }
         const offsetMinutes = -utcOffsetHours * 60;
         currentConfig.globalEnabled = globalEnabledEl.checked;
+        currentConfig.debugMode = debugModeEl.checked;
         currentConfig.matchMode = matchModeEl.value;
         currentConfig.domainList = domainListArray;
         currentConfig.geolocation.enabled = geolocationEnabledEl.checked;

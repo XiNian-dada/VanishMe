@@ -5,6 +5,7 @@ import type { PrivacyConfig, GeolocationHistory } from '../shared/types';
 
 // DOM elements
 const globalEnabledEl = document.getElementById('globalEnabled') as HTMLInputElement;
+const debugModeEl = document.getElementById('debugMode') as HTMLInputElement;
 const globalStatusEl = document.getElementById('globalStatus') as HTMLElement;
 const currentSiteEl = document.getElementById('currentSite') as HTMLElement;
 const enableSiteBtn = document.getElementById('enableSite') as HTMLButtonElement;
@@ -82,6 +83,7 @@ async function loadConfig() {
 
   // Populate UI
   globalEnabledEl.checked = currentConfig.globalEnabled;
+  debugModeEl.checked = currentConfig.debugMode || false;
   updateGlobalStatus();
 
   // Match mode
@@ -166,6 +168,7 @@ async function saveChanges() {
     const offsetMinutes = -utcOffsetHours * 60;
 
     currentConfig.globalEnabled = globalEnabledEl.checked;
+    currentConfig.debugMode = debugModeEl.checked;
     currentConfig.matchMode = matchModeEl.value as 'global' | 'whitelist' | 'blacklist';
     currentConfig.domainList = domainListArray;
 
@@ -447,6 +450,7 @@ globalEnabledEl.addEventListener('change', () => {
   updateGlobalStatus();
   saveChanges();
 });
+debugModeEl.addEventListener('change', () => saveChanges());
 matchModeEl.addEventListener('blur', () => saveChanges());
 domainListEl.addEventListener('blur', () => saveChanges());
 

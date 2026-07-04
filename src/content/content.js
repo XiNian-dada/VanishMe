@@ -86,6 +86,7 @@ window.addEventListener('message', async (event) => {
         const config = await getEffectiveConfigForUrl(window.location.href);
         const injectedConfig = {
             enabled: config.globalEnabled,
+            debugMode: config.debugMode || false,
             geolocation: config.geolocation,
             timezone: config.timezone,
             language: config.language,
