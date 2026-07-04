@@ -5,37 +5,33 @@ export function setupCanvasSpoofing(config) {
     // 保存原始方法
     const originalMeasureText = CanvasRenderingContext2D.prototype.measureText;
     const originalGetPropertyDescriptor = Object.getOwnPropertyDescriptor;
-    // 目标：让字体检测失败，返回一致的宽度
-    // 检测原理：切换字体前后宽度差异 > 0.5 就认为字体存在
-    // 我们的策略：无论什么字体，都返回相同的宽度
     // 劫持 measureText
     const measureTextProxy = new Proxy(originalMeasureText, {
         apply(target, thisArg, args) {
-            const result = Reflect.apply(target, thisArg, args);
-            // 如果正在检测中文字体，返回统一的宽度（让差异 < 0.5）
             if (thisArg && thisArg.font && config.targetFonts.length > 0) {
                 const font = thisArg.font.toLowerCase();
-                // 检查是否在测试目标字体
+                // 检查是否包含目标中文字体
                 for (const targetFont of config.targetFonts) {
                     const targetFontLower = targetFont.toLowerCase();
-                    if (font.includes(targetFontLower)) {
-                        // 返回固定宽度，让检测失败
-                        // 使用 fallback 字体（monospace/sans-serif/serif）的宽度
-                        const baseFontMatch = font.match(/(monospace|sans-serif|serif)/);
-                        if (baseFontMatch) {
-                            // 重新测量 fallback 字体的宽度
-                            const baseFont = font.replace(`"${targetFont}",`, '').trim();
-                            thisArg.font = baseFont;
-                            const baseResult = Reflect.apply(target, thisArg, args);
-                            // 恢复字体
-                            thisArg.font = font;
-                            // 返回 fallback 字体的宽度（让差异 = 0）
-                            return baseResult;
-                        }
+                    if (font.includes(`"${targetFontLower}"`) || font.includes(`'${targetFontLower}'`)) {
+                        // 检测到目标字体，移除它，只用 fallback 字体测量
+                        // 例如：'72px "Microsoft YaHei", sans-serif' -> '72px sans-serif'
+                        const fallbackFont = font
+                            .replace(new RegExp(`["']${targetFontLower}["']\\s*,\\s*`, 'gi'), '')
+                            .replace(new RegExp(`["']${targetFontLower}["']`, 'gi'), '');
+                        // 临时改变字体为 fallback
+                        const originalFont = thisArg.font;
+                        thisArg.font = fallbackFont;
+                        // 用 fallback 字体测量
+                        const result = Reflect.apply(target, thisArg, args);
+                        // 恢复原字体
+                        thisArg.font = originalFont;
+                        return result;
                     }
                 }
             }
-            return result;
+            // 正常调用
+            return Reflect.apply(target, thisArg, args);
         }
     });
     // 应用 Proxy
