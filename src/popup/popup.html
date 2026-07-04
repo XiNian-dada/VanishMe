@@ -8,6 +8,7 @@
 </head>
 <body>
   <div class="container">
+    <div id="autoSaveToast" class="auto-save-toast">已自动保存</div>
     <header>
       <div class="header-content">
         <h1>VanishMe</h1>
@@ -54,6 +55,7 @@
 
     <section class="profile-section">
       <h2>快速配置</h2>
+      <button id="getFromIP" class="btn-primary" style="width: 100%; margin-bottom: 12px;">🌐 从 IP 自动配置</button>
       <div class="profile-cards">
         <button class="profile-card" data-profile="singapore">
           <div class="profile-card-name">新加坡</div>
@@ -111,7 +113,6 @@
             <span>伪装权限</span>
           </label>
           <button id="saveCoordinate" class="btn-secondary btn-sm">保存当前坐标</button>
-          <button id="getFromIP" class="btn-secondary btn-sm">从 IP 获取位置</button>
         </div>
       </details>
 
@@ -189,7 +190,6 @@
     </section>
 
     <footer>
-      <button id="save" class="btn-primary">保存</button>
       <button id="openOptions" class="btn-secondary">打开完整配置</button>
       <button id="openLeakTest" class="btn-secondary">隐私检测</button>
       <button id="reset" class="btn-secondary">重置</button>

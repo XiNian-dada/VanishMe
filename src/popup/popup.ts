@@ -44,9 +44,27 @@ const saveBtn = document.getElementById('save') as HTMLButtonElement;
 const openOptionsBtn = document.getElementById('openOptions') as HTMLButtonElement;
 const openLeakTestBtn = document.getElementById('openLeakTest') as HTMLButtonElement;
 const resetBtn = document.getElementById('reset') as HTMLButtonElement;
+const autoSaveToast = document.getElementById('autoSaveToast') as HTMLElement;
 
 let currentConfig: PrivacyConfig;
 let currentHostname: string = '';
+let autoSaveTimer: number | null = null;
+
+function showAutoSaveToast() {
+  // Clear existing timer
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer);
+  }
+
+  // Show toast
+  autoSaveToast.classList.add('show');
+
+  // Hide after 2 seconds
+  autoSaveTimer = window.setTimeout(() => {
+    autoSaveToast.classList.remove('show');
+    autoSaveTimer = null;
+  }, 2000);
+}
 
 async function loadConfig() {
   currentConfig = await getConfig();
@@ -175,13 +193,10 @@ async function saveChanges() {
 
     await setConfig(currentConfig);
 
-    // Reload current tab
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id) {
-      chrome.tabs.reload(tab.id);
-    }
+    // Show toast
+    showAutoSaveToast();
 
-    window.close();
+    // Don't auto-reload - let user refresh manually or close popup
   } catch (error) {
     console.error('Failed to save config:', error);
     alert('保存配置失败');
@@ -310,7 +325,9 @@ async function handleSaveCoordinate() {
     existingHistory.unshift(history);
     currentConfig.geolocation.history = existingHistory.slice(0, 10);
     await setConfig(currentConfig);
-    alert('坐标已保存');
+
+    // Auto-save and reload
+    await saveChanges();
   }
 }
 
@@ -344,38 +361,59 @@ async function handleGetFromIP() {
 
     const data = await response.json();
 
-    if (data.latitude && data.longitude) {
-      latitudeEl.value = data.latitude.toString();
-      longitudeEl.value = data.longitude.toString();
-
-      // Set timezone if available
-      if (data.timezone) {
-        timezoneEl.value = data.timezone;
-
-        // Calculate offset from timezone name and convert to UTC offset hours
-        // getTimezoneOffset returns UTC - local time in minutes
-        const now = new Date();
-        const tzDate = new Date(now.toLocaleString('en-US', { timeZone: data.timezone }));
-        const utcDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
-        const offsetMinutes = Math.round((utcDate.getTime() - tzDate.getTime()) / 60000);
-
-        // Convert to UTC offset hours (reverse sign)
-        // offsetMinutes = 420 (LA) -> UTC offset = -7
-        // offsetMinutes = -480 (SG) -> UTC offset = +8
-        const utcOffsetHours = -offsetMinutes / 60;
-        utcOffsetEl.value = utcOffsetHours.toString();
-      }
-
-      alert(`已从 IP 获取位置信息：\n${data.city}, ${data.country}\n纬度: ${data.latitude}\n经度: ${data.longitude}\n时区: ${data.timezone || 'N/A'}`);
-    } else {
+    if (!data.success || !data.latitude || !data.longitude) {
       throw new Error('No location data in response');
     }
+
+    // 1. Fill geolocation
+    latitudeEl.value = data.latitude.toString();
+    longitudeEl.value = data.longitude.toString();
+    geolocationEnabledEl.checked = true;
+
+    // 2. Fill timezone
+    if (data.timezone) {
+      timezoneEl.value = data.timezone;
+      timezoneEnabledEl.checked = true;
+
+      // Calculate offset from timezone_gmtOffset (in seconds)
+      // timezone_gmtOffset = -25200 (LA, UTC-7) -> -25200 / 3600 = -7
+      const utcOffsetHours = data.timezone_gmtOffset / 3600;
+      utcOffsetEl.value = utcOffsetHours.toString();
+    }
+
+    // 3. Fill language based on country code
+    if (data.country_code) {
+      const languageMap: Record<string, { language: string; languages: string[]; acceptLanguage: string }> = {
+        'US': { language: 'en-US', languages: ['en-US', 'en'], acceptLanguage: 'en-US,en;q=0.9' },
+        'GB': { language: 'en-GB', languages: ['en-GB', 'en'], acceptLanguage: 'en-GB,en;q=0.9' },
+        'CN': { language: 'zh-CN', languages: ['zh-CN', 'zh'], acceptLanguage: 'zh-CN,zh;q=0.9' },
+        'JP': { language: 'ja-JP', languages: ['ja-JP', 'ja'], acceptLanguage: 'ja-JP,ja;q=0.9' },
+        'KR': { language: 'ko-KR', languages: ['ko-KR', 'ko'], acceptLanguage: 'ko-KR,ko;q=0.9' },
+        'DE': { language: 'de-DE', languages: ['de-DE', 'de'], acceptLanguage: 'de-DE,de;q=0.9' },
+        'FR': { language: 'fr-FR', languages: ['fr-FR', 'fr'], acceptLanguage: 'fr-FR,fr;q=0.9' },
+        'SG': { language: 'en-SG', languages: ['en-SG', 'en'], acceptLanguage: 'en-SG,en;q=0.9' },
+        'TW': { language: 'zh-TW', languages: ['zh-TW', 'zh'], acceptLanguage: 'zh-TW,zh;q=0.9' },
+        'HK': { language: 'zh-HK', languages: ['zh-HK', 'zh'], acceptLanguage: 'zh-HK,zh;q=0.9' },
+      };
+
+      const langConfig = languageMap[data.country_code] || { language: 'en-US', languages: ['en-US', 'en'], acceptLanguage: 'en-US,en;q=0.9' };
+      languageEl.value = langConfig.language;
+      languagesEl.value = langConfig.languages.join(', ');
+      acceptLanguageEl.value = langConfig.acceptLanguage;
+      languageEnabledEl.checked = true;
+    }
+
+    // 4. Auto-save and reload
+    await saveChanges();
+
+    // Show success message (saveChanges will close the popup, so this won't be seen)
+    // But if there's an error in saveChanges, at least the form is filled
   } catch (error) {
-    console.error('Failed to get location from IP:', error);
-    alert('从 IP 获取位置失败，请手动输入或稍后重试');
+    console.error('Failed to get config from IP:', error);
+    alert('从 IP 获取配置失败，请手动输入或稍后重试');
   } finally {
     getFromIPBtn.disabled = false;
-    getFromIPBtn.textContent = '从 IP 获取位置';
+    getFromIPBtn.textContent = '从 IP 自动配置';
   }
 }
 
@@ -405,13 +443,41 @@ async function handleResetFonts() {
 }
 
 // Event listeners
-globalEnabledEl.addEventListener('change', updateGlobalStatus);
+globalEnabledEl.addEventListener('change', () => {
+  updateGlobalStatus();
+  saveChanges();
+});
+matchModeEl.addEventListener('blur', () => saveChanges());
+domainListEl.addEventListener('blur', () => saveChanges());
+
 enableSiteBtn.addEventListener('click', handleEnableSite);
 disableSiteBtn.addEventListener('click', handleDisableSite);
+
+geolocationEnabledEl.addEventListener('change', () => saveChanges());
+latitudeEl.addEventListener('blur', () => saveChanges());
+longitudeEl.addEventListener('blur', () => saveChanges());
+accuracyEl.addEventListener('blur', () => saveChanges());
+randomizeEl.addEventListener('change', () => saveChanges());
+randomRadiusMetersEl.addEventListener('blur', () => saveChanges());
+spoofPermissionEl.addEventListener('change', () => saveChanges());
+
+timezoneEnabledEl.addEventListener('change', () => saveChanges());
+timezoneEl.addEventListener('blur', () => saveChanges());
+utcOffsetEl.addEventListener('blur', () => saveChanges());
+
+languageEnabledEl.addEventListener('change', () => saveChanges());
+languageEl.addEventListener('blur', () => saveChanges());
+languagesEl.addEventListener('blur', () => saveChanges());
+acceptLanguageEl.addEventListener('blur', () => saveChanges());
+
+webrtcEnabledEl.addEventListener('change', () => saveChanges());
+webrtcPolicyEl.addEventListener('change', () => saveChanges());
+
+canvasEnabledEl.addEventListener('change', () => saveChanges());
+
 saveCoordinateBtn.addEventListener('click', handleSaveCoordinate);
 getFromIPBtn.addEventListener('click', handleGetFromIP);
 resetFontsBtn.addEventListener('click', handleResetFonts);
-saveBtn.addEventListener('click', saveChanges);
 openOptionsBtn.addEventListener('click', handleOpenOptions);
 openOptionsHeaderBtn.addEventListener('click', handleOpenOptions);
 openLeakTestBtn.addEventListener('click', handleOpenLeakTest);
