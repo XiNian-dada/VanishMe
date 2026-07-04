@@ -111,17 +111,5 @@ window.addEventListener('message', async (event) => {
   }
 });
 
-// Inject script synchronously - it will request config via postMessage
-function injectScriptSync(): void {
-  if ((window as any).__BPG_CONTENT_INJECTED__) {
-    return;
-  }
-  (window as any).__BPG_CONTENT_INJECTED__ = true;
-
-  const script = document.createElement('script');
-  script.src = chrome.runtime.getURL('injected/injected.js');
-  (document.head || document.documentElement).appendChild(script);
-}
-
-// Inject immediately
-injectScriptSync();
+// injected/injected.js is loaded by manifest.json in the MAIN world.
+// This content script only acts as the isolated-world bridge to extension storage.
