@@ -1,253 +1,212 @@
 import type { TimezoneConfig } from '../shared/types';
-import { getOriginals, safeDefineProperty } from './utils';
+import { getOriginals, makeNativeFunction } from './utils';
 
-export function installTimezoneSpoof(config: TimezoneConfig): void {
+function getTimezoneDisplayName(date: Date, tzName: string): string {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tzName,
+      timeZoneName: 'long'
+    });
+    const parts = formatter.formatToParts(date);
+    const tzPart = parts.find(p => p.type === 'timeZoneName');
+    if (tzPart && tzPart.value) {
+      return tzPart.value;
+    }
+  } catch {}
+  return tzName;
+}
+
+export function installTimezoneSpoof(config: TimezoneConfig, targetWindow: any = window): void {
   if (!config.enabled) return;
 
   const originals = getOriginals();
   const targetTimezone = config.timezone;
   const targetOffset = config.offsetMinutes;
+  const targetDateProto = targetWindow.Date?.prototype;
 
-  // Store the original getTimezoneOffset
-  const originalGetTimezoneOffset = originals.dateGetTimezoneOffset || Date.prototype.getTimezoneOffset;
+  if (!targetDateProto) return;
 
-  // DO NOT replace Date.prototype.getTimezoneOffset directly
-  // Instead, we'll intercept it by redefining it with a getter that calls our spoofed version
-  // But return the original function reference when inspected
+  // 1. Spoof Date.prototype.getTimezoneOffset
+  const originalGetTimezoneOffset = originals.dateGetTimezoneOffset || targetDateProto.getTimezoneOffset;
+  const spoofedGetTimezoneOffset = function getTimezoneOffset(this: any) {
+    if (isNaN(this.getTime())) return NaN;
+    return targetOffset;
+  };
+  targetDateProto.getTimezoneOffset = makeNativeFunction(
+    spoofedGetTimezoneOffset,
+    originalGetTimezoneOffset,
+    'getTimezoneOffset'
+  );
 
-  try {
-    // Create a wrapper that will be called, but looks native when inspected
-    const nativeLookingWrapper = new Proxy(originalGetTimezoneOffset, {
-      apply(target, thisArg, args) {
-        // When the function is called, return our fake offset
-        return targetOffset;
-      },
-      get(target, prop) {
-        // When properties are accessed (like toString), return the original's properties
-        // This makes Function.prototype.toString.call(wrapper) return "[native code]"
-        if (prop === 'toString') {
-          return function() { return 'function getTimezoneOffset() { [native code] }'; };
-        }
-        return (target as any)[prop];
+  // 2. Spoof Intl.DateTimeFormat
+  if (targetWindow.Intl && targetWindow.Intl.DateTimeFormat) {
+    const OriginalDateTimeFormat = targetWindow.Intl.DateTimeFormat;
+
+    const DateTimeFormatWrapper = function DateTimeFormat(...args: any[]) {
+      let locales = args[0];
+      let options = args[1];
+
+      if (!options || typeof options !== 'object') {
+        options = { timeZone: targetTimezone };
+      } else if (!options.timeZone) {
+        options = { ...options, timeZone: targetTimezone };
       }
-    });
 
-    // Replace the method with our proxy
-    Date.prototype.getTimezoneOffset = nativeLookingWrapper as any;
-  } catch (error) {
-    console.warn('Failed to spoof getTimezoneOffset:', error);
+      const formatter = new OriginalDateTimeFormat(locales, options);
+      const originalResolvedOptions = formatter.resolvedOptions;
+
+      formatter.resolvedOptions = makeNativeFunction(function resolvedOptions(this: any) {
+        const res = originalResolvedOptions.call(this);
+        res.timeZone = targetTimezone;
+        return res;
+      }, originalResolvedOptions, 'resolvedOptions');
+
+      return formatter;
+    };
+
+    DateTimeFormatWrapper.prototype = OriginalDateTimeFormat.prototype;
+    DateTimeFormatWrapper.supportedLocalesOf = OriginalDateTimeFormat.supportedLocalesOf;
+    Object.setPrototypeOf(DateTimeFormatWrapper, OriginalDateTimeFormat);
+
+    targetWindow.Intl.DateTimeFormat = makeNativeFunction(
+      DateTimeFormatWrapper,
+      OriginalDateTimeFormat,
+      'DateTimeFormat'
+    );
   }
 
-  // Spoof Intl.DateTimeFormat - wrap the entire constructor
-  if (window.Intl && Intl.DateTimeFormat) {
-    const OriginalDateTimeFormat = Intl.DateTimeFormat;
-
-    try {
-      // @ts-ignore
-      Intl.DateTimeFormat = function DateTimeFormat(...args: any[]) {
-        // Create the original formatter
-        const formatter = new OriginalDateTimeFormat(...args);
-
-        // Save original resolvedOptions
-        const originalResolvedOptions = formatter.resolvedOptions;
-
-        // Override resolvedOptions on this instance
-        formatter.resolvedOptions = function() {
-          const options = originalResolvedOptions.call(this);
-
-          // Use Proxy to intercept property access
-          return new Proxy(options, {
-            get(target, prop) {
-              if (prop === 'timeZone') {
-                console.log('VanishMe: Proxy intercepted timeZone access, returning:', targetTimezone);
-                return targetTimezone;
-              }
-              return target[prop as keyof typeof target];
-            }
-          });
-        };
-
-        return formatter;
-      };
-
-      // Copy static properties
-      Object.setPrototypeOf(Intl.DateTimeFormat, OriginalDateTimeFormat);
-      // @ts-ignore
-      Object.defineProperty(Intl.DateTimeFormat, 'prototype', {
-        value: OriginalDateTimeFormat.prototype,
-        writable: false
-      });
-
-      console.log('VanishMe: Successfully installed Intl.DateTimeFormat spoof with Proxy');
-    } catch (error) {
-      console.warn('Failed to spoof Intl.DateTimeFormat:', error);
+  // 3. Spoof Date.prototype.toString
+  const originalToString = originals.dateToString || targetDateProto.toString;
+  const spoofedToString = function toString(this: any) {
+    const utcTime = this.getTime();
+    if (isNaN(utcTime)) {
+      return 'Invalid Date';
     }
-  }
 
-  // Generate timezone abbreviation from timezone name
-  function getTimezoneAbbr(tzName: string): string {
-    const tzMap: Record<string, string> = {
-      'America/Los_Angeles': 'PDT', // or PST
-      'America/New_York': 'EDT', // or EST
-      'Europe/London': 'BST', // or GMT
-      'Europe/Berlin': 'CEST', // or CET
-      'Asia/Tokyo': 'JST',
-      'Asia/Shanghai': 'CST',
-      'Asia/Singapore': 'SGT',
-      'Australia/Sydney': 'AEDT' // or AEST
-    };
-    return tzMap[tzName] || 'GMT';
-  }
+    const localTime = new Date(utcTime - (targetOffset * 60000));
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-  const tzAbbr = getTimezoneAbbr(targetTimezone);
+    const day = days[localTime.getUTCDay()];
+    const month = months[localTime.getUTCMonth()];
+    const date = localTime.getUTCDate();
+    const year = localTime.getUTCFullYear();
+    const hours = String(localTime.getUTCHours()).padStart(2, '0');
+    const minutes = String(localTime.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(localTime.getUTCSeconds()).padStart(2, '0');
 
-  // Spoof Date.prototype.toString - show fake timezone
-  try {
-    Date.prototype.toString = function() {
-      const utcTime = this.getTime();
-      const localTime = new Date(utcTime - (targetOffset * 60000));
+    const offsetHours = Math.floor(Math.abs(targetOffset) / 60);
+    const offsetMins = Math.abs(targetOffset) % 60;
+    const offsetSign = targetOffset > 0 ? '-' : '+';
+    const offsetStr = `GMT${offsetSign}${String(offsetHours).padStart(2, '0')}${String(offsetMins).padStart(2, '0')}`;
+    const tzDisplayName = getTimezoneDisplayName(this, targetTimezone);
 
-      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${day} ${month} ${String(date).padStart(2, '0')} ${year} ${hours}:${minutes}:${seconds} ${offsetStr} (${tzDisplayName})`;
+  };
+  targetDateProto.toString = makeNativeFunction(spoofedToString, originalToString, 'toString');
 
-      const day = days[localTime.getUTCDay()];
-      const month = months[localTime.getUTCMonth()];
-      const date = localTime.getUTCDate();
-      const year = localTime.getUTCFullYear();
-      const hours = String(localTime.getUTCHours()).padStart(2, '0');
-      const minutes = String(localTime.getUTCMinutes()).padStart(2, '0');
-      const seconds = String(localTime.getUTCSeconds()).padStart(2, '0');
+  // 4. Spoof Date.prototype.toTimeString
+  const originalToTimeString = originals.dateToTimeString || targetDateProto.toTimeString;
+  const spoofedToTimeString = function toTimeString(this: any) {
+    const utcTime = this.getTime();
+    if (isNaN(utcTime)) {
+      return 'Invalid Date';
+    }
 
-      const offsetHours = Math.floor(Math.abs(targetOffset) / 60);
-      const offsetMins = Math.abs(targetOffset) % 60;
-      const offsetSign = targetOffset > 0 ? '-' : '+';
-      const offsetStr = `GMT${offsetSign}${String(offsetHours).padStart(2, '0')}${String(offsetMins).padStart(2, '0')}`;
+    const localTime = new Date(utcTime - (targetOffset * 60000));
+    const hours = String(localTime.getUTCHours()).padStart(2, '0');
+    const minutes = String(localTime.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(localTime.getUTCSeconds()).padStart(2, '0');
 
-      return `${day} ${month} ${String(date).padStart(2, '0')} ${year} ${hours}:${minutes}:${seconds} ${offsetStr} (${targetTimezone})`;
-    };
-  } catch (error) {
-    console.warn('Failed to spoof Date.toString:', error);
-  }
+    const offsetHours = Math.floor(Math.abs(targetOffset) / 60);
+    const offsetMins = Math.abs(targetOffset) % 60;
+    const offsetSign = targetOffset > 0 ? '-' : '+';
+    const offsetStr = `GMT${offsetSign}${String(offsetHours).padStart(2, '0')}${String(offsetMins).padStart(2, '0')}`;
+    const tzDisplayName = getTimezoneDisplayName(this, targetTimezone);
 
-  // Spoof Date.prototype.toTimeString
-  try {
-    Date.prototype.toTimeString = function() {
-      const utcTime = this.getTime();
-      const localTime = new Date(utcTime - (targetOffset * 60000));
+    return `${hours}:${minutes}:${seconds} ${offsetStr} (${tzDisplayName})`;
+  };
+  targetDateProto.toTimeString = makeNativeFunction(spoofedToTimeString, originalToTimeString, 'toTimeString');
 
-      const hours = String(localTime.getUTCHours()).padStart(2, '0');
-      const minutes = String(localTime.getUTCMinutes()).padStart(2, '0');
-      const seconds = String(localTime.getUTCSeconds()).padStart(2, '0');
+  // 5. Spoof Locale Date/Time methods
+  const originalToLocaleString = originals.dateToLocaleString || targetDateProto.toLocaleString;
+  targetDateProto.toLocaleString = makeNativeFunction(function toLocaleString(this: any, locales?: any, options?: any) {
+    if (!options || !options.timeZone) {
+      options = { ...(options || {}), timeZone: targetTimezone };
+    }
+    return originalToLocaleString.call(this, locales, options);
+  }, originalToLocaleString, 'toLocaleString');
 
-      const offsetHours = Math.floor(Math.abs(targetOffset) / 60);
-      const offsetMins = Math.abs(targetOffset) % 60;
-      const offsetSign = targetOffset > 0 ? '-' : '+';
-      const offsetStr = `GMT${offsetSign}${String(offsetHours).padStart(2, '0')}${String(offsetMins).padStart(2, '0')}`;
+  const originalToLocaleDateString = originals.dateToLocaleDateString || targetDateProto.toLocaleDateString;
+  targetDateProto.toLocaleDateString = makeNativeFunction(function toLocaleDateString(this: any, locales?: any, options?: any) {
+    if (!options || !options.timeZone) {
+      options = { ...(options || {}), timeZone: targetTimezone };
+    }
+    return originalToLocaleDateString.call(this, locales, options);
+  }, originalToLocaleDateString, 'toLocaleDateString');
 
-      return `${hours}:${minutes}:${seconds} ${offsetStr} (${targetTimezone})`;
-    };
-  } catch (error) {
-    console.warn('Failed to spoof Date.toTimeString:', error);
-  }
+  const originalToLocaleTimeString = originals.dateToLocaleTimeString || targetDateProto.toLocaleTimeString;
+  targetDateProto.toLocaleTimeString = makeNativeFunction(function toLocaleTimeString(this: any, locales?: any, options?: any) {
+    if (!options || !options.timeZone) {
+      options = { ...(options || {}), timeZone: targetTimezone };
+    }
+    return originalToLocaleTimeString.call(this, locales, options);
+  }, originalToLocaleTimeString, 'toLocaleTimeString');
 
-  // Spoof Date.prototype.toLocaleString
-  try {
-    const originalToLocaleString = originals.dateToLocaleString || Date.prototype.toLocaleString;
-    Date.prototype.toLocaleString = function(locales?: string | string[], options?: Intl.DateTimeFormatOptions) {
-      if (!options || !options.timeZone) {
-        options = { ...(options || {}), timeZone: targetTimezone };
-      }
-      return originalToLocaleString.call(this, locales, options);
-    };
-  } catch (error) {
-    console.warn('Failed to spoof Date.toLocaleString:', error);
-  }
+  // 6. Spoof Date getters to reflect target offset
+  const originalGetFullYear = targetDateProto.getFullYear;
+  targetDateProto.getFullYear = makeNativeFunction(function getFullYear(this: any) {
+    const utcTime = this.getTime();
+    if (isNaN(utcTime)) return NaN;
+    return new Date(utcTime - (targetOffset * 60000)).getUTCFullYear();
+  }, originalGetFullYear, 'getFullYear');
 
-  // Spoof Date.prototype.toLocaleDateString
-  try {
-    const originalToLocaleDateString = originals.dateToLocaleDateString || Date.prototype.toLocaleDateString;
-    Date.prototype.toLocaleDateString = function(locales?: string | string[], options?: Intl.DateTimeFormatOptions) {
-      if (!options || !options.timeZone) {
-        options = { ...(options || {}), timeZone: targetTimezone };
-      }
-      return originalToLocaleDateString.call(this, locales, options);
-    };
-  } catch (error) {
-    console.warn('Failed to spoof Date.toLocaleDateString:', error);
-  }
+  const originalGetMonth = targetDateProto.getMonth;
+  targetDateProto.getMonth = makeNativeFunction(function getMonth(this: any) {
+    const utcTime = this.getTime();
+    if (isNaN(utcTime)) return NaN;
+    return new Date(utcTime - (targetOffset * 60000)).getUTCMonth();
+  }, originalGetMonth, 'getMonth');
 
-  // Spoof Date.prototype.toLocaleTimeString
-  try {
-    const originalToLocaleTimeString = originals.dateToLocaleTimeString || Date.prototype.toLocaleTimeString;
-    Date.prototype.toLocaleTimeString = function(locales?: string | string[], options?: Intl.DateTimeFormatOptions) {
-      if (!options || !options.timeZone) {
-        options = { ...(options || {}), timeZone: targetTimezone };
-      }
-      return originalToLocaleTimeString.call(this, locales, options);
-    };
-  } catch (error) {
-    console.warn('Failed to spoof Date.toLocaleTimeString:', error);
-  }
+  const originalGetDate = targetDateProto.getDate;
+  targetDateProto.getDate = makeNativeFunction(function getDate(this: any) {
+    const utcTime = this.getTime();
+    if (isNaN(utcTime)) return NaN;
+    return new Date(utcTime - (targetOffset * 60000)).getUTCDate();
+  }, originalGetDate, 'getDate');
 
-  // Spoof Date.prototype.getDate and other getters to use fake timezone
-  // This affects how dates are displayed
-  try {
-    const originalGetFullYear = Date.prototype.getFullYear;
-    Date.prototype.getFullYear = function() {
-      const utcTime = this.getTime();
-      const adjustedDate = new Date(utcTime - (targetOffset * 60000));
-      return adjustedDate.getUTCFullYear();
-    };
+  const originalGetDay = targetDateProto.getDay;
+  targetDateProto.getDay = makeNativeFunction(function getDay(this: any) {
+    const utcTime = this.getTime();
+    if (isNaN(utcTime)) return NaN;
+    return new Date(utcTime - (targetOffset * 60000)).getUTCDay();
+  }, originalGetDay, 'getDay');
 
-    const originalGetMonth = Date.prototype.getMonth;
-    Date.prototype.getMonth = function() {
-      const utcTime = this.getTime();
-      const adjustedDate = new Date(utcTime - (targetOffset * 60000));
-      return adjustedDate.getUTCMonth();
-    };
+  const originalGetHours = targetDateProto.getHours;
+  targetDateProto.getHours = makeNativeFunction(function getHours(this: any) {
+    const utcTime = this.getTime();
+    if (isNaN(utcTime)) return NaN;
+    return new Date(utcTime - (targetOffset * 60000)).getUTCHours();
+  }, originalGetHours, 'getHours');
 
-    const originalGetDate = Date.prototype.getDate;
-    Date.prototype.getDate = function() {
-      const utcTime = this.getTime();
-      const adjustedDate = new Date(utcTime - (targetOffset * 60000));
-      return adjustedDate.getUTCDate();
-    };
+  const originalGetMinutes = targetDateProto.getMinutes;
+  targetDateProto.getMinutes = makeNativeFunction(function getMinutes(this: any) {
+    const utcTime = this.getTime();
+    if (isNaN(utcTime)) return NaN;
+    return new Date(utcTime - (targetOffset * 60000)).getUTCMinutes();
+  }, originalGetMinutes, 'getMinutes');
 
-    const originalGetDay = Date.prototype.getDay;
-    Date.prototype.getDay = function() {
-      const utcTime = this.getTime();
-      const adjustedDate = new Date(utcTime - (targetOffset * 60000));
-      return adjustedDate.getUTCDay();
-    };
+  const originalGetSeconds = targetDateProto.getSeconds;
+  targetDateProto.getSeconds = makeNativeFunction(function getSeconds(this: any) {
+    const utcTime = this.getTime();
+    if (isNaN(utcTime)) return NaN;
+    return new Date(utcTime - (targetOffset * 60000)).getUTCSeconds();
+  }, originalGetSeconds, 'getSeconds');
 
-    const originalGetHours = Date.prototype.getHours;
-    Date.prototype.getHours = function() {
-      const utcTime = this.getTime();
-      const adjustedDate = new Date(utcTime - (targetOffset * 60000));
-      return adjustedDate.getUTCHours();
-    };
-
-    const originalGetMinutes = Date.prototype.getMinutes;
-    Date.prototype.getMinutes = function() {
-      const utcTime = this.getTime();
-      const adjustedDate = new Date(utcTime - (targetOffset * 60000));
-      return adjustedDate.getUTCMinutes();
-    };
-
-    const originalGetSeconds = Date.prototype.getSeconds;
-    Date.prototype.getSeconds = function() {
-      const utcTime = this.getTime();
-      const adjustedDate = new Date(utcTime - (targetOffset * 60000));
-      return adjustedDate.getUTCSeconds();
-    };
-
-    const originalGetMilliseconds = Date.prototype.getMilliseconds;
-    Date.prototype.getMilliseconds = function() {
-      const utcTime = this.getTime();
-      const adjustedDate = new Date(utcTime - (targetOffset * 60000));
-      return adjustedDate.getUTCMilliseconds();
-    };
-  } catch (error) {
-    console.warn('Failed to spoof Date getters:', error);
-  }
+  const originalGetMilliseconds = targetDateProto.getMilliseconds;
+  targetDateProto.getMilliseconds = makeNativeFunction(function getMilliseconds(this: any) {
+    const utcTime = this.getTime();
+    if (isNaN(utcTime)) return NaN;
+    return new Date(utcTime - (targetOffset * 60000)).getUTCMilliseconds();
+  }, originalGetMilliseconds, 'getMilliseconds');
 }
