@@ -63,7 +63,7 @@ export function safeDefineProperty(obj: any, prop: string, descriptor: PropertyD
 }
 
 // Hide function modification by making it look native
-export function makeNativeFunction(func: Function, originalFunc?: Function, customName?: string): Function {
+export function makeNativeFunction<T extends Function = Function>(func: T, originalFunc?: Function, customName?: string): T {
   const name = customName !== undefined ? customName : (originalFunc ? originalFunc.name : func.name);
   const length = originalFunc ? originalFunc.length : func.length;
 
@@ -92,5 +92,5 @@ export function makeNativeFunction(func: Function, originalFunc?: Function, cust
   const proxied = new Proxy(func, handler);
   spoofedFunctionSet.add(proxied);
 
-  return proxied;
+  return proxied as T;
 }
