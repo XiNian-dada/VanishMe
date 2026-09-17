@@ -1,4 +1,4 @@
-import { isSpoofedFunction, markAsSpoofed, makeNativeFunction } from './utils';
+import { isSpoofedFunction, markAsSpoofed, makeNativeFunction, createNativeGetter } from './utils';
 
 // Anti-detection measures to hide spoofing from fingerprint detection
 export function installAntiDetection(): void {
@@ -27,7 +27,7 @@ export function installAntiDetection(): void {
       if (funcName) {
         if (funcName.startsWith('get ')) {
           const prop = funcName.slice(4);
-          if (['language', 'languages', 'state'].includes(prop)) {
+          if (['language', 'languages', 'state', 'stack'].includes(prop)) {
             return `function get ${prop}() { [native code] }`;
           }
         }
@@ -73,7 +73,7 @@ export function installAntiDetection(): void {
       };
 
       Object.defineProperty(Error.prototype, 'stack', {
-        get: makeNativeFunction(cleanStackGetter, originalStackGetter, 'get stack'),
+        get: createNativeGetter('stack', cleanStackGetter, originalStackGetter) as any,
         configurable: true
       });
     }

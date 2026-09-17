@@ -1,5 +1,5 @@
 import type { LanguageConfig } from '../shared/types';
-import { safeDefineProperty, getOriginals, makeNativeFunction } from './utils';
+import { safeDefineProperty, getOriginals, makeNativeFunction, createNativeGetter } from './utils';
 
 export function installLanguageSpoof(config: LanguageConfig, targetWindow: any = window): void {
   if (!config.enabled) return;
@@ -9,9 +9,10 @@ export function installLanguageSpoof(config: LanguageConfig, targetWindow: any =
 
   // 1. Spoof navigator.language
   try {
-    const spoofedLanguageGetter = makeNativeFunction(function language(this: any) {
+    const originalLanguageDesc = Object.getOwnPropertyDescriptor(targetNavProto, 'language');
+    const spoofedLanguageGetter = createNativeGetter('language', function language(this: any) {
       return config.language;
-    }, undefined, 'get language');
+    }, originalLanguageDesc?.get);
 
     Object.defineProperty(targetNavProto, 'language', {
       get: spoofedLanguageGetter as any,
@@ -24,10 +25,11 @@ export function installLanguageSpoof(config: LanguageConfig, targetWindow: any =
 
   // 2. Spoof navigator.languages
   try {
+    const originalLanguagesDesc = Object.getOwnPropertyDescriptor(targetNavProto, 'languages');
     const frozenLanguages = Object.freeze([...config.languages]);
-    const spoofedLanguagesGetter = makeNativeFunction(function languages(this: any) {
+    const spoofedLanguagesGetter = createNativeGetter('languages', function languages(this: any) {
       return frozenLanguages;
-    }, undefined, 'get languages');
+    }, originalLanguagesDesc?.get);
 
     Object.defineProperty(targetNavProto, 'languages', {
       get: spoofedLanguagesGetter as any,
@@ -41,7 +43,7 @@ export function installLanguageSpoof(config: LanguageConfig, targetWindow: any =
   // 3. Spoof legacy language properties if present
   if (targetWindow.navigator && 'userLanguage' in targetWindow.navigator) {
     safeDefineProperty(targetNavProto, 'userLanguage', {
-      get: makeNativeFunction(function userLanguage() { return config.language; }, undefined, 'get userLanguage'),
+      get: createNativeGetter('userLanguage', function userLanguage() { return config.language; }) as any,
       configurable: true,
       enumerable: true
     });
@@ -49,7 +51,7 @@ export function installLanguageSpoof(config: LanguageConfig, targetWindow: any =
 
   if (targetWindow.navigator && 'browserLanguage' in targetWindow.navigator) {
     safeDefineProperty(targetNavProto, 'browserLanguage', {
-      get: makeNativeFunction(function browserLanguage() { return config.language; }, undefined, 'get browserLanguage'),
+      get: createNativeGetter('browserLanguage', function browserLanguage() { return config.language; }) as any,
       configurable: true,
       enumerable: true
     });

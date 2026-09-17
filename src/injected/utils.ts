@@ -94,3 +94,24 @@ export function makeNativeFunction<T extends Function = Function>(func: T, origi
 
   return proxied as T;
 }
+
+// Create a native-looking getter function that satisfies strict fingerprint checks:
+// 1. Natural ES6 getter has no .prototype ('prototype' in getter === false)
+// 2. Own property names: ['length', 'name']
+// 3. No own 'arguments' or 'caller'
+// 4. Function.prototype.toString returns 'function get <name>() { [native code] }'
+export function createNativeGetter(
+  name: string,
+  getterImpl: (this: any) => any,
+  originalGetter?: Function
+): Function {
+  const cleanName = name.startsWith('get ') ? name.slice(4) : name;
+  const holder = {
+    get [cleanName](): any {
+      return getterImpl.call(this);
+    }
+  };
+  const getter = Object.getOwnPropertyDescriptor(holder, cleanName)!.get!;
+  return makeNativeFunction(getter, originalGetter, `get ${cleanName}`);
+}
+
