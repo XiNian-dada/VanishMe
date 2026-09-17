@@ -59,9 +59,28 @@ export const DEFAULT_PROFILES: Profile[] = [
     }
   },
   {
+    id: 'us-west',
+    name: 'US (West)',
+    description: 'United States West (Los Angeles)',
+    geolocation: {
+      latitude: 34.0522,
+      longitude: -118.2437,
+      accuracy: 50
+    },
+    language: {
+      language: 'en-US',
+      languages: ['en-US', 'en'],
+      acceptLanguage: 'en-US,en;q=0.9'
+    },
+    timezone: {
+      timezone: 'America/Los_Angeles',
+      offsetMinutes: 420
+    }
+  },
+  {
     id: 'united-states',
-    name: 'United States',
-    description: 'United States environment',
+    name: 'US (East)',
+    description: 'United States East (New York)',
     geolocation: {
       latitude: 40.7128,
       longitude: -74.0060,
@@ -74,7 +93,7 @@ export const DEFAULT_PROFILES: Profile[] = [
     },
     timezone: {
       timezone: 'America/New_York',
-      offsetMinutes: 300
+      offsetMinutes: 240
     }
   },
   {
@@ -103,6 +122,22 @@ export const DEFAULT_CONFIG: PrivacyConfig = {
   debugMode: false, // 默认关闭调试日志
   matchMode: 'whitelist', // 默认使用白名单模式
   domainList: [
+    // 常见指纹与隐私检测网站（开箱即测）
+    'iprisk.top',
+    '*.iprisk.top',
+    'browserscan.net',
+    '*.browserscan.net',
+    'browserleaks.com',
+    '*.browserleaks.com',
+    'ipleak.net',
+    '*.ipleak.net',
+    'deviceinfo.me',
+    '*.deviceinfo.me',
+    'whoer.net',
+    '*.whoer.net',
+    'ipinfo.io',
+    '*.ipinfo.io',
+
     // AI 网站
     'chatgpt.com',
     '*.openai.com',

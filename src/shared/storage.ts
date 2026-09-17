@@ -10,10 +10,28 @@ export async function getConfig(): Promise<PrivacyConfig> {
     const result = await chrome.storage.local.get(STORAGE_KEY);
     if (result[STORAGE_KEY]) {
       const stored = result[STORAGE_KEY];
+
+      // 合并测试网站域名，确保检测站开箱即用
+      const testDomains = DEFAULT_CONFIG.domainList.filter(d => 
+        d.includes('iprisk') || d.includes('browserscan') || d.includes('browserleaks') || d.includes('ipleak') || d.includes('deviceinfo')
+      );
+      const mergedDomainList = Array.from(new Set([
+        ...(stored.domainList || DEFAULT_CONFIG.domainList),
+        ...testDomains
+      ]));
+
+      // 补充可能新增的内置预设（如 us-west）
+      const existingProfileIds = new Set((stored.profile?.profiles || []).map((p: any) => p.id));
+      const mergedProfiles = [
+        ...(stored.profile?.profiles || []),
+        ...DEFAULT_CONFIG.profile.profiles.filter(p => !existingProfileIds.has(p.id))
+      ];
+
       // 深度合并，确保所有新字段都有默认值
       return {
         ...DEFAULT_CONFIG,
         ...stored,
+        domainList: mergedDomainList,
         geolocation: {
           ...DEFAULT_CONFIG.geolocation,
           ...(stored.geolocation || {})
@@ -36,7 +54,8 @@ export async function getConfig(): Promise<PrivacyConfig> {
         },
         profile: {
           ...DEFAULT_CONFIG.profile,
-          ...(stored.profile || {})
+          ...(stored.profile || {}),
+          profiles: mergedProfiles
         }
       };
     }
