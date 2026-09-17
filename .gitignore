@@ -3,3 +3,7 @@ dist/
 *.log
 .DS_Store
 **/.DS_Store
+
+# TypeScript compiled output (keep only .ts source files)
+src/**/*.js
+src/**/*.js.map

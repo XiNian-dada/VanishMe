@@ -1,42 +1,55 @@
-export function saveOriginalMethods() {
-  const win = window as any;
+const originalMethods: Record<string, any> = {};
 
-  if (!win.__BPG_ORIGINALS__) {
-    win.__BPG_ORIGINALS__ = {};
+export const spoofedFunctionSet = new WeakSet<Function>();
+
+export function markAsSpoofed(fn: Function) {
+  spoofedFunctionSet.add(fn);
+  return fn;
+}
+
+export function isSpoofedFunction(fn: Function): boolean {
+  return spoofedFunctionSet.has(fn);
+}
+
+export function saveOriginalMethods() {
+  if (Object.keys(originalMethods).length > 0) {
+    return originalMethods;
   }
 
-  const originals = win.__BPG_ORIGINALS__;
-
   // Geolocation
-  if (navigator.geolocation) {
-    originals.getCurrentPosition = navigator.geolocation.getCurrentPosition;
-    originals.watchPosition = navigator.geolocation.watchPosition;
-    originals.clearWatch = navigator.geolocation.clearWatch;
+  if (typeof Geolocation !== 'undefined' && Geolocation.prototype) {
+    originalMethods.getCurrentPosition = Geolocation.prototype.getCurrentPosition;
+    originalMethods.watchPosition = Geolocation.prototype.watchPosition;
+    originalMethods.clearWatch = Geolocation.prototype.clearWatch;
+  } else if (navigator.geolocation) {
+    originalMethods.getCurrentPosition = navigator.geolocation.getCurrentPosition;
+    originalMethods.watchPosition = navigator.geolocation.watchPosition;
+    originalMethods.clearWatch = navigator.geolocation.clearWatch;
   }
 
   // Permissions
-  if (navigator.permissions) {
-    originals.permissionsQuery = navigator.permissions.query;
+  if (navigator.permissions && typeof Permissions !== 'undefined' && Permissions.prototype) {
+    originalMethods.permissionsQuery = Permissions.prototype.query || navigator.permissions.query;
   }
 
   // Date
-  originals.dateGetTimezoneOffset = Date.prototype.getTimezoneOffset;
-  originals.dateToString = Date.prototype.toString;
-  originals.dateToTimeString = Date.prototype.toTimeString;
-  originals.dateToLocaleString = Date.prototype.toLocaleString;
-  originals.dateToLocaleDateString = Date.prototype.toLocaleDateString;
-  originals.dateToLocaleTimeString = Date.prototype.toLocaleTimeString;
+  originalMethods.dateGetTimezoneOffset = Date.prototype.getTimezoneOffset;
+  originalMethods.dateToString = Date.prototype.toString;
+  originalMethods.dateToTimeString = Date.prototype.toTimeString;
+  originalMethods.dateToLocaleString = Date.prototype.toLocaleString;
+  originalMethods.dateToLocaleDateString = Date.prototype.toLocaleDateString;
+  originalMethods.dateToLocaleTimeString = Date.prototype.toLocaleTimeString;
 
   // Intl
   if (window.Intl && Intl.DateTimeFormat) {
-    originals.intlResolvedOptions = Intl.DateTimeFormat.prototype.resolvedOptions;
+    originalMethods.intlResolvedOptions = Intl.DateTimeFormat.prototype.resolvedOptions;
   }
 
-  return originals;
+  return originalMethods;
 }
 
 export function getOriginals() {
-  return (window as any).__BPG_ORIGINALS__ || {};
+  return originalMethods;
 }
 
 export function safeDefineProperty(obj: any, prop: string, descriptor: PropertyDescriptor): boolean {
@@ -50,39 +63,34 @@ export function safeDefineProperty(obj: any, prop: string, descriptor: PropertyD
 }
 
 // Hide function modification by making it look native
-export function makeNativeFunction(func: Function, originalFunc: Function): Function {
-  const handler = {
+export function makeNativeFunction(func: Function, originalFunc?: Function, customName?: string): Function {
+  const name = customName !== undefined ? customName : (originalFunc ? originalFunc.name : func.name);
+  const length = originalFunc ? originalFunc.length : func.length;
+
+  const handler: ProxyHandler<any> = {
     apply(target: any, thisArg: any, args: any[]) {
       return func.apply(thisArg, args);
     },
-    get(target: any, prop: string | symbol) {
+    get(target: any, prop: string | symbol, receiver: any) {
       if (prop === 'toString') {
-        // Return the original function's toString method, not a wrapper
-        return function() { return originalFunc.toString(); };
-      }
-      if (prop === Symbol.toStringTag) {
-        return (originalFunc as any)[Symbol.toStringTag];
+        const toStringFn = function toString() {
+          return `function ${name}() { [native code] }`;
+        };
+        spoofedFunctionSet.add(toStringFn);
+        return toStringFn;
       }
       if (prop === 'name') {
-        return originalFunc.name;
+        return name;
       }
       if (prop === 'length') {
-        return originalFunc.length;
+        return length;
       }
-      // Return the property from the original function
-      return (originalFunc as any)[prop];
+      return Reflect.get(target, prop, receiver);
     }
   };
 
   const proxied = new Proxy(func, handler);
-
-  // Try to prevent Proxy detection
-  try {
-    // Make the Proxy look less like a Proxy
-    Object.setPrototypeOf(proxied, originalFunc.constructor.prototype);
-  } catch (e) {
-    // Ignore errors
-  }
+  spoofedFunctionSet.add(proxied);
 
   return proxied;
 }
