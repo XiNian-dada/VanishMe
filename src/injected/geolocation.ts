@@ -1,7 +1,7 @@
 import type { GeolocationConfig } from '../shared/types';
 import { getOriginals, makeNativeFunction } from './utils';
 
-export function installGeolocationSpoof(config: GeolocationConfig): void {
+export function installGeolocationSpoof(config: GeolocationConfig, targetWindow: any = window): void {
   if (!config.enabled) return;
 
   const originals = getOriginals();
@@ -55,30 +55,41 @@ export function installGeolocationSpoof(config: GeolocationConfig): void {
 
   function createPosition() {
     const coords = getCoordinates();
-    return {
-      coords: {
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-        accuracy: coords.accuracy,
-        altitude: null,
-        altitudeAccuracy: null,
-        heading: null,
-        speed: null
-      },
+    const coordsObj = {
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      accuracy: coords.accuracy,
+      altitude: null,
+      altitudeAccuracy: null,
+      heading: null,
+      speed: null
+    };
+
+    if (targetWindow.GeolocationCoordinates && targetWindow.GeolocationCoordinates.prototype) {
+      Object.setPrototypeOf(coordsObj, targetWindow.GeolocationCoordinates.prototype);
+    }
+
+    const positionObj = {
+      coords: coordsObj,
       timestamp: Date.now()
     };
+
+    if (targetWindow.GeolocationPosition && targetWindow.GeolocationPosition.prototype) {
+      Object.setPrototypeOf(positionObj, targetWindow.GeolocationPosition.prototype);
+    }
+
+    return positionObj;
   }
 
-  // Create geolocation object if it doesn't exist
-  if (!navigator.geolocation) {
-    (navigator as any).geolocation = {};
-  }
+  const targetProto = (targetWindow.Geolocation && targetWindow.Geolocation.prototype)
+    ? targetWindow.Geolocation.prototype
+    : (targetWindow.navigator && targetWindow.navigator.geolocation ? targetWindow.navigator.geolocation : null);
 
-  const geolocation = navigator.geolocation as any;
+  if (!targetProto) return;
 
-  // Spoof getCurrentPosition
-  const originalGetCurrentPosition = originals.getCurrentPosition;
-  const spoofedGetCurrentPosition = function(
+  const originalGetCurrentPosition = originals.getCurrentPosition || targetProto.getCurrentPosition;
+  const spoofedGetCurrentPosition = function getCurrentPosition(
+    this: any,
     successCallback: PositionCallback,
     errorCallback?: PositionErrorCallback,
     options?: PositionOptions
@@ -100,20 +111,22 @@ export function installGeolocationSpoof(config: GeolocationConfig): void {
       }
     }, 0);
   };
-  geolocation.getCurrentPosition = originalGetCurrentPosition
-    ? makeNativeFunction(spoofedGetCurrentPosition, originalGetCurrentPosition)
-    : spoofedGetCurrentPosition;
 
-  // Spoof watchPosition
-  const originalWatchPosition = originals.watchPosition;
-  const spoofedWatchPosition = function(
+  targetProto.getCurrentPosition = makeNativeFunction(
+    spoofedGetCurrentPosition,
+    originalGetCurrentPosition,
+    'getCurrentPosition'
+  );
+
+  const originalWatchPosition = originals.watchPosition || targetProto.watchPosition;
+  const spoofedWatchPosition = function watchPosition(
+    this: any,
     successCallback: PositionCallback,
     errorCallback?: PositionErrorCallback,
     options?: PositionOptions
   ) {
     const watchId = nextWatchId++;
 
-    // Send initial position
     setTimeout(() => {
       try {
         const position = createPosition();
@@ -131,7 +144,6 @@ export function installGeolocationSpoof(config: GeolocationConfig): void {
       }
     }, 0);
 
-    // Continue sending positions at interval
     const intervalId = setInterval(() => {
       try {
         const position = createPosition();
@@ -144,20 +156,25 @@ export function installGeolocationSpoof(config: GeolocationConfig): void {
     watchIdMap.set(watchId, intervalId);
     return watchId;
   };
-  geolocation.watchPosition = originalWatchPosition
-    ? makeNativeFunction(spoofedWatchPosition, originalWatchPosition)
-    : spoofedWatchPosition;
 
-  // Spoof clearWatch
-  const originalClearWatch = originals.clearWatch;
-  const spoofedClearWatch = function(watchId: number) {
+  targetProto.watchPosition = makeNativeFunction(
+    spoofedWatchPosition,
+    originalWatchPosition,
+    'watchPosition'
+  );
+
+  const originalClearWatch = originals.clearWatch || targetProto.clearWatch;
+  const spoofedClearWatch = function clearWatch(this: any, watchId: number) {
     const intervalId = watchIdMap.get(watchId);
     if (intervalId !== undefined) {
       clearInterval(intervalId);
       watchIdMap.delete(watchId);
     }
   };
-  geolocation.clearWatch = originalClearWatch
-    ? makeNativeFunction(spoofedClearWatch, originalClearWatch)
-    : spoofedClearWatch;
+
+  targetProto.clearWatch = makeNativeFunction(
+    spoofedClearWatch,
+    originalClearWatch,
+    'clearWatch'
+  );
 }

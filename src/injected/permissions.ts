@@ -1,29 +1,49 @@
 import type { GeolocationConfig } from '../shared/types';
-import { getOriginals } from './utils';
+import { getOriginals, makeNativeFunction } from './utils';
 
-export function installPermissionsSpoof(config: GeolocationConfig): void {
+function createFallbackPermissionStatus(targetWindow: any): PermissionStatus {
+  const status: any = new (targetWindow.EventTarget || Object)();
+  status.name = 'geolocation';
+  status.state = 'granted';
+  status.onchange = null;
+  if (targetWindow.PermissionStatus && targetWindow.PermissionStatus.prototype) {
+    Object.setPrototypeOf(status, targetWindow.PermissionStatus.prototype);
+  }
+  return status as PermissionStatus;
+}
+
+export function installPermissionsSpoof(config: GeolocationConfig, targetWindow: any = window): void {
   if (!config.enabled || !config.spoofPermission) return;
 
-  const originals = getOriginals();
+  const targetPerms = targetWindow.navigator?.permissions;
+  if (!targetPerms) return;
 
-  if (!navigator.permissions) {
-    return;
-  }
+  const targetProto = targetWindow.Permissions?.prototype || targetPerms;
+  const originalQuery = getOriginals().permissionsQuery || targetProto.query;
 
-  const originalQuery = originals.permissionsQuery || navigator.permissions.query;
-
-  navigator.permissions.query = function(permissionDesc: any) {
+  const spoofedQuery = function query(this: any, permissionDesc: any) {
     if (permissionDesc && permissionDesc.name === 'geolocation') {
-      return Promise.resolve({
-        state: 'granted',
-        name: 'geolocation',
-        onchange: null,
-        addEventListener: function() {},
-        removeEventListener: function() {},
-        dispatchEvent: function() { return true; }
-      } as PermissionStatus);
+      try {
+        const promise = originalQuery.call(this, permissionDesc);
+        return promise.then((realStatus: any) => {
+          return new Proxy(realStatus, {
+            get(target, prop, receiver) {
+              if (prop === 'state') return 'granted';
+              const val = Reflect.get(target, prop, receiver);
+              if (typeof val === 'function') return val.bind(target);
+              return val;
+            }
+          });
+        }).catch(() => {
+          return createFallbackPermissionStatus(targetWindow);
+        });
+      } catch {
+        return Promise.resolve(createFallbackPermissionStatus(targetWindow));
+      }
     }
 
-    return originalQuery.call(navigator.permissions, permissionDesc);
+    return originalQuery.call(this, permissionDesc);
   };
+
+  targetProto.query = makeNativeFunction(spoofedQuery, originalQuery, 'query');
 }
