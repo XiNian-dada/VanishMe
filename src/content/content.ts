@@ -1,10 +1,18 @@
 // Domain matching logic (inlined to avoid code splitting)
 function patternToRegex(pattern: string): RegExp {
-  let regexStr = pattern
-    .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-    .replace(/\*/g, '.*');
-  regexStr = '^' + regexStr + '$';
-  return new RegExp(regexStr, 'i');
+  if (pattern === '*') {
+    return /^.+$/i;
+  }
+
+  let escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+
+  if (escaped.startsWith('\\*\\.')) {
+    const root = escaped.slice(4);
+    return new RegExp(`^(?:.*\\.)?${root}$`, 'i');
+  }
+
+  escaped = escaped.replace(/\*/g, '.*');
+  return new RegExp(`^${escaped}$`, 'i');
 }
 
 function matchDomain(domain: string, pattern: string): boolean {
@@ -49,7 +57,6 @@ function shouldEnableSpoofing(
 async function getEffectiveConfigForUrl(url: string) {
   const { bpg_config } = await chrome.storage.local.get('bpg_config');
   if (!bpg_config) {
-    // Return default config if none exists
     return {
       globalEnabled: true,
       geolocation: { enabled: false },
@@ -93,8 +100,10 @@ async function getEffectiveConfigForUrl(url: string) {
 
 // Listen for config requests from injected script
 window.addEventListener('message', async (event) => {
-  if (event.source !== window) return;
-  if (event.data.type === '__BPG_REQUEST_CONFIG__') {
+  if (event.source !== window || !event.data) return;
+
+  if (event.data.type === '__VM_REQ__' || event.data.type === '__BPG_REQUEST_CONFIG__') {
+    const nonce = event.data.nonce;
     const config = await getEffectiveConfigForUrl(window.location.href);
     const injectedConfig = {
       enabled: config.globalEnabled,
@@ -106,11 +115,34 @@ window.addEventListener('message', async (event) => {
     };
 
     window.postMessage({
+      type: '__VM_RES__',
+      nonce,
+      config: injectedConfig
+    }, '*');
+
+    window.postMessage({
       type: '__BPG_CONFIG_RESPONSE__',
       config: injectedConfig
     }, '*');
   }
 });
 
-// injected/injected.js is loaded by manifest.json in the MAIN world.
-// This content script only acts as the isolated-world bridge to extension storage.
+// Forward storage updates to injected script
+chrome.storage.onChanged.addListener(async (changes, areaName) => {
+  if (areaName === 'local' && changes.bpg_config) {
+    const config = await getEffectiveConfigForUrl(window.location.href);
+    const injectedConfig = {
+      enabled: config.globalEnabled,
+      debugMode: config.debugMode || false,
+      geolocation: config.geolocation,
+      timezone: config.timezone,
+      language: config.language,
+      canvas: config.canvas
+    };
+
+    window.postMessage({
+      type: '__VM_UPDATE__',
+      config: injectedConfig
+    }, '*');
+  }
+});
