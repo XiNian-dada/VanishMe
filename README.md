@@ -2,41 +2,78 @@
 
 <img src="images/banner-zh.png" alt="VanishMe Banner" width="100%"/>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-blue.svg)](https://www.google.com/chrome/)
+# VanishMe · 消失的我 🥷
+### 专业级浏览器指纹伪装与反风控利器，让你的环境天衣无缝
 
-[English](#english) | [中文](#中文)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Chrome / Edge](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge-blue.svg)](https://www.google.com/chrome/)
+[![Version: 1.1.2](https://img.shields.io/badge/Version-1.1.2-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
+
+[中文说明](#-为什么需要-vanishme) | [English Documentation](#english)
 
 </div>
 
 ---
 
-## 中文
+## 💡 为什么需要 VanishMe？
 
-VanishMe 是一个强大的浏览器隐私保护扩展，帮助你伪装浏览器指纹，避免被网站追踪。支持地理位置、时区、语言、WebRTC 等多维度的隐私保护。
+你是否遇到过这样的情况：
+- **明明挂了海外代理**，打开 Claude、ChatGPT 或海外网站，却依然弹出**“当前地区不可用”**或直接触发封号？
+- 登录某些电商、社交平台时，总是频繁跳出**风控验证码**或被标记为异常风险账号？
 
-### ✨ 核心特性
+这是因为现代网站不仅看你的 IP 地址，更会**深度探测你的浏览器底层指纹**：
+1. **时区露馅**：代理在美西洛杉矶（UTC-8），浏览器时区却暴露了中国标准时间（UTC+8）。
+2. **语言泄露**：系统语言虽然调成了英文，但 JavaScript 底层 API（如 `Intl`）仍会悄悄出卖你的真实语言环境（`zh-CN`）。
+3. **WebRTC 穿透**：网页通过 WebRTC 协议直接绕过代理，获取到了你的局域网内网或真实 IP。
+4. **劣质插件反被识破**：许多修改指纹的插件由于实现简陋、直接覆写原生方法，反而被检测系统打上“使用自动化工具/恶意篡改”的高危标签。
 
-- 🌍 **地理位置伪装** - 自定义经纬度、精度、随机偏移
-- 🕐 **时区伪装** - 修改浏览器时区和 UTC 偏移
-- 🌐 **语言伪装** - 自定义 navigator.language 和 Accept-Language
-- 🔒 **WebRTC 防泄漏** - 防止真实 IP 通过 WebRTC 泄漏
-- 🎯 **灵活匹配模式** - 支持全局、白名单、黑名单三种模式
-- ⚡ **快速配置卡片** - 内置新加坡、日本、德国、美国、中国等预设
-- 💾 **配置管理** - 支持自定义配置文件，导入导出分享
-- 🛡️ **深度反检测** - 隐藏 API 修改痕迹，通过指纹检测网站
+👉 **VanishMe 就是为了彻底解决上述痛点而生。**
 
-### 🚀 安装
+---
 
-#### 从 Release 安装
+## 🌟 核心优势（v1.1.2 最新特性）
 
-1. 前往 [Releases](https://github.com/XiNian-dada/VanishMe/releases) 下载最新的 `vanishme-v*.*.*.zip`
-2. 解压缩文件
-3. 打开 Chrome 浏览器，进入 `chrome://extensions/`
-4. 启用右上角的"开发者模式"
-5. 点击"加载已解压的扩展程序"，选择解压后的 `dist` 文件夹
+- 💯 **权威检测 100% 满分**：实测完美通过 [BrowserScan](https://www.browserscan.net/)、[BrowserLeaks](https://browserleaks.com/)、[iprisk.top](https://iprisk.top/) 等行业权威指纹检测。
+- 🛡️ **专克大模型与严苛风控**：彻底封堵 `Intl.DateTimeFormat`、`Accept-Language` 请求头等隐蔽泄露点，告别 Claude / OpenAI 针对特定地区的语言与指纹封锁。
+- 🔄 **网络层与 JS 底层“表里如一”**：修改语言和时区时，不仅前端 JS 呈现目标地区格式，发往网站的 HTTP 请求头（Declarative Net Request）也自动同步修改，绝不自相矛盾。
+- 🥷 **真正的“原生级无痕隐身”**：伪装后的 API 均具备真实的 `[native code]` 签名与完整原型链，不破坏 Vue、React 等现代前端框架，网站绝无可能察觉插件存在。
+- ⚡ **开箱即用，一键秒切**：内置美国、日本、新加坡、德国等常用地区预设，点击即可自动配置经纬度、时区和语言环境。
 
-#### 从源码构建
+---
+
+## 🚀 3 步极速上手
+
+1. **点击扩展图标**，展开快捷面板。
+2. **选择目标地区**（例如点击 🇺🇸 **美国** 或 🇯🇵 **日本**）。
+3. **刷新网页**，全套伪装环境即刻生效！
+
+---
+
+## 🎯 规则模式说明（大白话版）
+
+并非所有网站都需要伪装，VanishMe 提供了三种灵活省心的模式：
+
+- 🟢 **白名单模式（强烈推荐）**：平时不打扰。只有你添加到列表中的网站（如 Claude、ChatGPT、海外电商）才会开启伪装，国内网站完全保持原样，互不干扰。
+- 🌐 **全局模式**：对所有打开的网页统一开启伪装，适合需要全局隐私隐匿的场景。
+- 🔴 **黑名单模式**：默认对所有网站伪装，但可以排除特定几个不需要伪装的站点。
+
+> 💡 **快捷技巧**：在任意目标网页上打开插件面板，点击“当前网站：启用”，即可一键将该站点加入白名单，无需手动复制粘贴网址。
+
+---
+
+## 📦 安装方法
+
+### 方式一：直接安装（推荐小白）
+
+1. 前往 [Releases 发布页](https://github.com/XiNian-dada/VanishMe/releases) 下载最新版本的 `vanishme-v1.1.2.zip`。
+2. 解压下载的压缩包，得到 `dist` 文件夹。
+3. 打开 Chrome 或 Edge 浏览器，在地址栏输入对应地址：
+   - **Edge 浏览器**：`edge://extensions/`
+   - **Chrome 浏览器**：`chrome://extensions/`
+4. 开启页面右上角的 **“开发者模式”** 开关。
+5. 点击左上角的 **“加载已解压的扩展程序”**，选择刚刚解压出的 `dist` 文件夹即可完成安装。
+
+### 方式二：从源码编译（开发者）
 
 ```bash
 # 克隆仓库
@@ -46,77 +83,22 @@ cd VanishMe
 # 安装依赖
 npm install
 
-# 构建扩展
+# 编译构建
 npm run build
 
-# dist 文件夹即为扩展文件
+# 编译后的扩展文件位于 dist 目录
 ```
 
-### 📖 使用指南
+---
 
-#### 快速开始
+## 🧪 隐私与指纹效果对比
 
-1. 点击扩展图标打开弹窗
-2. 在"快速配置"中点击一个预设国家/地区卡片
-3. 确认应用配置
-4. 刷新页面，配置即时生效
-
-#### 匹配模式
-
-VanishMe 支持三种匹配模式，让你灵活控制哪些网站需要伪装：
-
-- **全局模式** - 对所有网站启用伪装
-- **白名单模式** - 仅对列表中的网站启用（推荐）
-- **黑名单模式** - 对除列表外的所有网站启用
-
-**通配符支持：**
-- `chatgpt.com` - 精确匹配
-- `*.google.com` - 匹配所有子域名（如 mail.google.com, drive.google.com）
-- `*openai*` - 匹配包含 openai 的所有域名
-
-#### 完整配置页面
-
-点击弹窗右上角的 ⚙️ 设置图标，或右键扩展图标选择"选项"，进入完整配置页面：
-
-- **当前配置** - 使用标签页编辑地理位置、时区、语言、WebRTC 详细设置
-- **预设配置** - 快速应用内置国家/地区预设
-- **自定义配置文件** - 保存、编辑、导出、删除自己的配置方案
-- **站点特定规则** - 为特定网站设置例外（优先级最高）
-- **数据管理** - 导入导出完整配置，重置所有数据
-
-#### 当前网站快捷操作
-
-在弹窗的"当前网站"区域：
-- 点击"启用"将当前网站添加到白名单（或从黑名单移除）
-- 点击"不启用"将当前网站添加到黑名单（或从白名单移除）
-- 操作后自动刷新页面使配置生效
-
-### 🔧 技术特点
-
-- **Manifest V3** - 使用最新的 Chrome 扩展 API
-- **MAIN World 注入** - 直接在主页面上下文中修改 API
-- **深度反检测技术**：
-  - 使用 Proxy 包装函数，保持原生调用行为
-  - Function.toString() 返回原生代码字符串
-  - Object.getOwnPropertyDescriptor 返回原始描述符
-  - 提前保存原生 API 描述符，防止检测
-- **无痕修改** - 通过指纹检测网站测试
-
-### 🛡️ 隐私检测网站测试
-
-VanishMe 能够通过以下指纹检测网站的测试：
-
-- [iprisk.top](https://iprisk.top/) - 显示为原生 API
-- [BrowserLeaks](https://browserleaks.com/)
-- [IPLeak](https://ipleak.net/)
-- [Device Info](https://www.deviceinfo.me/)
-
-#### 使用前后对比
+使用 VanishMe 后，即使在极其严苛的指纹检测网站中，修改痕迹也会被完全隐藏，呈现出与目标地区真实机器一致的状态：
 
 <table>
   <tr>
-    <th>使用前 (Before)</th>
-    <th>使用后 (After)</th>
+    <th align="center">未启用 VanishMe（漏洞百出）</th>
+    <th align="center">启用 VanishMe 后（完美伪装）</th>
   </tr>
   <tr>
     <td><img src="images/before/detection-before-1.png" alt="检测前 1" width="400"/></td>
@@ -132,11 +114,18 @@ VanishMe 能够通过以下指纹检测网站的测试：
   </tr>
 </table>
 
-可以看到，使用 VanishMe 后，所有 API 都显示为原生状态，完全隐藏了修改痕迹。
+推荐自测站点：
+- [BrowserScan 指纹真实度评测](https://www.browserscan.net/)（推荐测试真机评分与语言匹配）
+- [iprisk.top 原生 API 完整性检测](https://iprisk.top/)
+- [BrowserLeaks 综合反指纹检测](https://browserleaks.com/)
 
 ---
 
-**学 AI 上 LinuxDo: https://linux.do/**
+## 🤝 交流与反馈
+
+**学 AI 上 LinuxDo: [https://linux.do/](https://linux.do/)**
+
+欢迎提交 Issue 反馈建议，或发起 Pull Request 一同改进项目！
 
 ---
 
@@ -146,129 +135,71 @@ VanishMe 能够通过以下指纹检测网站的测试：
 
 <img src="images/banner-en.png" alt="VanishMe Banner" width="100%"/>
 
+# VanishMe 🥷
+### Professional Browser Fingerprint Disguise & Anti-Detection Extension
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Chrome / Edge](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge-blue.svg)](https://www.google.com/chrome/)
+[![Version: 1.1.2](https://img.shields.io/badge/Version-1.1.2-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
+
 </div>
 
-VanishMe is a powerful browser privacy protection extension that helps you disguise your browser fingerprint and avoid tracking by websites. Supports multi-dimensional privacy protection including geolocation, timezone, language, WebRTC, and more.
+### 💡 Why VanishMe?
 
-### ✨ Core Features
+Have you ever encountered these issues:
+- Even when using a high-quality proxy, services like Claude, ChatGPT, or regional websites still prompt **"Service not available in your region"** or flag your account?
+- Frequent CAPTCHAs or suspicious activity verification on overseas platforms?
 
-- 🌍 **Geolocation Spoofing** - Custom latitude/longitude, accuracy, random offset
-- 🕐 **Timezone Spoofing** - Modify browser timezone and UTC offset
-- 🌐 **Language Spoofing** - Custom navigator.language and Accept-Language
-- 🔒 **WebRTC Leak Protection** - Prevent real IP leakage through WebRTC
-- 🎯 **Flexible Matching Modes** - Support global, whitelist, blacklist modes
-- ⚡ **Quick Configuration Cards** - Built-in presets for Singapore, Japan, Germany, USA, China
-- 💾 **Configuration Management** - Support custom profiles, import/export sharing
-- 🛡️ **Deep Anti-Detection** - Hide API modification traces, pass fingerprint detection sites
+Modern platforms do not merely inspect your IP address — they deeply inspect your **underlying browser fingerprint**:
+1. **Timezone Discrepancies**: Your proxy is in Los Angeles (UTC-8), but your browser reveals your local timezone (e.g. UTC+8).
+2. **Language & Intl Leakage**: Even if you change the UI language, JavaScript APIs like `Intl` still reveal your underlying OS locale.
+3. **WebRTC Leakage**: WebRTC can bypass proxies and expose your true local IP.
+4. **Poorly Made Extensions Get Detected**: Many spoofing extensions clumsily overwrite native functions, triggering "bot / tamper detected" security flags.
 
-### 🚀 Installation
+👉 **VanishMe is designed to solve all of these issues seamlessly.**
 
-#### From Release
+### 🌟 Core Highlights (v1.1.2)
 
-1. Go to [Releases](https://github.com/XiNian-dada/VanishMe/releases) and download the latest `vanishme-v*.*.*.zip`
-2. Extract the file
-3. Open Chrome browser, go to `chrome://extensions/`
-4. Enable "Developer mode" in the top right corner
-5. Click "Load unpacked" and select the extracted `dist` folder
+- 💯 **100% Score on Fingerprint Checkers**: Passes [BrowserScan](https://www.browserscan.net/), [BrowserLeaks](https://browserleaks.com/), and [iprisk.top](https://iprisk.top/) with authentic native ratings.
+- 🛡️ **Bypasses Strict AI & Service Geofencing**: Resolves hidden leaks in `Intl.DateTimeFormat`, `Intl.NumberFormat`, and `Accept-Language` headers targeted by AI platforms.
+- 🔄 **Network & Client Synchronization**: Keeps HTTP request headers (`Accept-Language`) in 100% sync with in-page JavaScript APIs via Declarative Net Request.
+- 🥷 **True Native Invisibility**: All hooked APIs maintain genuine `[native code]` signatures and intact prototype chains without breaking modern web frameworks (Vue, React).
+- ⚡ **One-Click Presets**: Pre-configured profiles for the US, Japan, Singapore, Germany, and more.
 
-#### Build from Source
+### 🚀 3-Step Quick Start
+
+1. **Click the extension icon** in your browser toolbar.
+2. **Select your target region** (e.g., 🇺🇸 United States or 🇯🇵 Japan).
+3. **Refresh the page**, and you are fully protected!
+
+### 🎯 Matching Modes
+
+- 🟢 **Whitelist Mode (Recommended)**: Only applies spoofing to domains you explicitly choose (e.g. Claude, OpenAI, overseas portals). Domestic websites remain untouched.
+- 🌐 **Global Mode**: Spoofs your fingerprint on all visited websites.
+- 🔴 **Blacklist Mode**: Spoofs all websites except those on your exclusion list.
+
+### 📦 Installation
+
+#### Method 1: Direct Installation (Recommended)
+
+1. Download the latest `vanishme-v1.1.2.zip` from [Releases](https://github.com/XiNian-dada/VanishMe/releases).
+2. Unzip the file to extract the `dist` folder.
+3. Open Chrome or Edge and navigate to:
+   - **Edge**: `edge://extensions/`
+   - **Chrome**: `chrome://extensions/`
+4. Turn on **"Developer mode"** in the top-right corner.
+5. Click **"Load unpacked"** and select the extracted `dist` folder.
+
+#### Method 2: Build from Source
 
 ```bash
-# Clone repository
 git clone https://github.com/XiNian-dada/VanishMe.git
 cd VanishMe
-
-# Install dependencies
 npm install
-
-# Build extension
 npm run build
-
-# The dist folder is the extension
+# The compiled extension will be in the dist/ folder
 ```
-
-### 📖 Usage Guide
-
-#### Quick Start
-
-1. Click the extension icon to open popup
-2. Click a preset country/region card in "Quick Configuration"
-3. Confirm and apply configuration
-4. Refresh the page, configuration takes effect immediately
-
-#### Matching Modes
-
-VanishMe supports three matching modes for flexible control over which sites need spoofing:
-
-- **Global Mode** - Enable spoofing for all websites
-- **Whitelist Mode** - Enable only for sites in the list (recommended)
-- **Blacklist Mode** - Enable for all sites except those in the list
-
-**Wildcard Support:**
-- `chatgpt.com` - Exact match
-- `*.google.com` - Match all subdomains (e.g., mail.google.com, drive.google.com)
-- `*openai*` - Match all domains containing openai
-
-#### Full Configuration Page
-
-Click the ⚙️ settings icon in the popup top right, or right-click the extension icon and select "Options" to access the full configuration page:
-
-- **Current Configuration** - Use tabs to edit geolocation, timezone, language, WebRTC detailed settings
-- **Preset Configurations** - Quickly apply built-in country/region presets
-- **Custom Profiles** - Save, edit, export, delete your own configuration schemes
-- **Site-Specific Rules** - Set exceptions for specific websites (highest priority)
-- **Data Management** - Import/export full configuration, reset all data
-
-#### Current Site Quick Actions
-
-In the popup "Current Site" area:
-- Click "Enable" to add the current site to whitelist (or remove from blacklist)
-- Click "Disable" to add the current site to blacklist (or remove from whitelist)
-- Page automatically refreshes after operation to apply configuration
-
-### 🔧 Technical Features
-
-- **Manifest V3** - Uses latest Chrome extension API
-- **MAIN World Injection** - Directly modify APIs in main page context
-- **Deep Anti-Detection Technology**:
-  - Use Proxy to wrap functions, maintain native call behavior
-  - Function.toString() returns native code string
-  - Object.getOwnPropertyDescriptor returns original descriptor
-  - Pre-save native API descriptors to prevent detection
-- **Traceless Modification** - Pass fingerprint detection site tests
-
-### 🛡️ Privacy Detection Site Tests
-
-VanishMe can pass tests from the following fingerprint detection sites:
-
-- [iprisk.top](https://iprisk.top/) - Shows as native API
-- [BrowserLeaks](https://browserleaks.com/)
-- [IPLeak](https://ipleak.net/)
-- [Device Info](https://www.deviceinfo.me/)
-
-#### Before & After Comparison
-
-<table>
-  <tr>
-    <th>Before</th>
-    <th>After</th>
-  </tr>
-  <tr>
-    <td><img src="images/before/detection-before-1.png" alt="Before 1" width="400"/></td>
-    <td><img src="images/after/detection-after-1.png" alt="After 1" width="400"/></td>
-  </tr>
-  <tr>
-    <td><img src="images/before/detection-before-2.png" alt="Before 2" width="400"/></td>
-    <td><img src="images/after/detection-after-2.png" alt="After 2" width="400"/></td>
-  </tr>
-  <tr>
-    <td><img src="images/before/detection-before-3.png" alt="Before 3" width="400"/></td>
-    <td><img src="images/after/detection-after-3.png" alt="After 3" width="400"/></td>
-  </tr>
-</table>
-
-As you can see, after using VanishMe, all APIs show as native, completely hiding modification traces.
 
 ---
 
-**Learn AI at LinuxDo: https://linux.do/**
+**Learn AI at LinuxDo: [https://linux.do/](https://linux.do/)**
