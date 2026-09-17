@@ -56,17 +56,33 @@ function createRuleCondition(
   pattern?: string,
   excludedDomains: string[] = []
 ): chrome.declarativeNetRequest.RuleCondition | null {
-  const condition: chrome.declarativeNetRequest.RuleCondition = {
-    resourceTypes: ACCEPT_LANGUAGE_RESOURCE_TYPES,
-    isUrlFilterCaseSensitive: false
-  };
+  const condition: chrome.declarativeNetRequest.RuleCondition = {};
 
   if (excludedDomains.length > 0) {
     condition.excludedRequestDomains = excludedDomains;
   }
 
-  if (!pattern) {
+  if (!pattern || pattern === '*') {
+    condition.urlFilter = '|http*';
     return condition;
+  }
+
+  const normalized = normalizePattern(pattern);
+  if (!normalized) return null;
+
+  // Exact domain or *.domain wildcard: requestDomains natively matches the domain and all subdomains!
+  // e.g. 'browserscan.net' matches 'browserscan.net', 'www.browserscan.net', etc.
+  if (!normalized.includes('*')) {
+    condition.requestDomains = [normalized];
+    return condition;
+  }
+
+  if (normalized.startsWith('*.')) {
+    const rootDomain = normalized.slice(2);
+    if (!rootDomain.includes('*')) {
+      condition.requestDomains = [rootDomain];
+      return condition;
+    }
   }
 
   const regexFilter = patternToUrlRegex(pattern);
@@ -75,6 +91,7 @@ function createRuleCondition(
   }
 
   condition.regexFilter = regexFilter;
+  condition.isUrlFilterCaseSensitive = false;
   return condition;
 }
 
