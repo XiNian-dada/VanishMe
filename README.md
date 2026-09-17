@@ -7,7 +7,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Chrome / Edge](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge-blue.svg)](https://www.google.com/chrome/)
-[![Version: 1.1.2](https://img.shields.io/badge/Version-1.1.2-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
+[![Version: 1.1.3](https://img.shields.io/badge/Version-1.1.3-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
 
 [中文说明](#-为什么需要-vanishme) | [English Documentation](#english)
 
@@ -31,7 +31,7 @@
 
 ---
 
-## 🌟 核心优势（v1.1.2 最新特性）
+## 🌟 核心优势（v1.1.3 最新特性）
 
 - 💯 **权威检测 100% 满分**：实测完美通过 [BrowserScan](https://www.browserscan.net/)、[BrowserLeaks](https://browserleaks.com/)、[iprisk.top](https://iprisk.top/) 等行业权威指纹检测。
 - 🛡️ **专克大模型与严苛风控**：彻底封堵 `Intl.DateTimeFormat`、`Accept-Language` 请求头等隐蔽泄露点，告别 Claude / OpenAI 针对特定地区的语言与指纹封锁。
@@ -65,7 +65,7 @@
 
 ### 方式一：直接安装（推荐小白）
 
-1. 前往 [Releases 发布页](https://github.com/XiNian-dada/VanishMe/releases) 下载最新版本的 `vanishme-v1.1.2.zip`。
+1. 前往 [Releases 发布页](https://github.com/XiNian-dada/VanishMe/releases) 下载最新版本的 `vanishme-v1.1.3.zip`。
 2. 解压下载的压缩包，得到 `dist` 文件夹。
 3. 打开 Chrome 或 Edge 浏览器，在地址栏输入对应地址：
    - **Edge 浏览器**：`edge://extensions/`
@@ -140,7 +140,7 @@ npm run build
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Chrome / Edge](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge-blue.svg)](https://www.google.com/chrome/)
-[![Version: 1.1.2](https://img.shields.io/badge/Version-1.1.2-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
+[![Version: 1.1.3](https://img.shields.io/badge/Version-1.1.3-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
 
 </div>
 
@@ -158,7 +158,7 @@ Modern platforms do not merely inspect your IP address — they deeply inspect y
 
 👉 **VanishMe is designed to solve all of these issues seamlessly.**
 
-### 🌟 Core Highlights (v1.1.2)
+### 🌟 Core Highlights (v1.1.3)
 
 - 💯 **100% Score on Fingerprint Checkers**: Passes [BrowserScan](https://www.browserscan.net/), [BrowserLeaks](https://browserleaks.com/), and [iprisk.top](https://iprisk.top/) with authentic native ratings.
 - 🛡️ **Bypasses Strict AI & Service Geofencing**: Resolves hidden leaks in `Intl.DateTimeFormat`, `Intl.NumberFormat`, and `Accept-Language` headers targeted by AI platforms.
@@ -182,7 +182,7 @@ Modern platforms do not merely inspect your IP address — they deeply inspect y
 
 #### Method 1: Direct Installation (Recommended)
 
-1. Download the latest `vanishme-v1.1.2.zip` from [Releases](https://github.com/XiNian-dada/VanishMe/releases).
+1. Download the latest `vanishme-v1.1.3.zip` from [Releases](https://github.com/XiNian-dada/VanishMe/releases).
 2. Unzip the file to extract the `dist` folder.
 3. Open Chrome or Edge and navigate to:
    - **Edge**: `edge://extensions/`
