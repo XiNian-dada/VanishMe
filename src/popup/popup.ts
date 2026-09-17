@@ -92,7 +92,6 @@ async function loadConfig() {
 
   // Geolocation
   geolocationEnabledEl.checked = currentConfig.geolocation.enabled;
-  geolocationEnabledEl.checked = currentConfig.geolocation.enabled;
   latitudeEl.value = currentConfig.geolocation.latitude.toString();
   longitudeEl.value = currentConfig.geolocation.longitude.toString();
   accuracyEl.value = currentConfig.geolocation.accuracy.toString();

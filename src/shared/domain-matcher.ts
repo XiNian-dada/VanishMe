@@ -12,15 +12,22 @@
  * 将通配符模式转换为正则表达式
  */
 function patternToRegex(pattern: string): RegExp {
-  // 转义特殊字符，但保留 *
-  let regexStr = pattern
-    .replace(/[.+?^${}()|[\]\\]/g, '\\$&')  // 转义除 * 外的特殊字符
-    .replace(/\*/g, '.*');  // 将 * 转换为 .*
+  if (pattern === '*') {
+    return /^.+$/i;
+  }
 
-  // 确保完全匹配（添加 ^ 和 $）
-  regexStr = '^' + regexStr + '$';
+  // Escape special regex characters except *
+  let escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
 
-  return new RegExp(regexStr, 'i');  // 不区分大小写
+  // If pattern starts with *., match both subdomains and exact apex domain
+  // e.g., *.google.com matches google.com and mail.google.com, but NOT evilgoogle.com
+  if (escaped.startsWith('\\*\\.')) {
+    const root = escaped.slice(4);
+    return new RegExp(`^(?:.*\\.)?${root}$`, 'i');
+  }
+
+  escaped = escaped.replace(/\*/g, '.*');
+  return new RegExp(`^${escaped}$`, 'i');
 }
 
 /**
