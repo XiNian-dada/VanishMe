@@ -61,7 +61,16 @@ export function installLanguageSpoof(config: LanguageConfig, targetWindow: any =
     try {
       const CollatorWrapper: any = function Collator(locales?: string | string[], options?: Intl.CollatorOptions) {
         const effectiveLocales = locales !== undefined ? locales : config.languages;
-        return new OriginalCollator(effectiveLocales, options);
+        const collator = new OriginalCollator(effectiveLocales, options);
+        const originalResolvedOptions = collator.resolvedOptions;
+        collator.resolvedOptions = makeNativeFunction(function resolvedOptions(this: any) {
+          const res = originalResolvedOptions.call(this);
+          if (locales === undefined) {
+            res.locale = config.language;
+          }
+          return res;
+        }, originalResolvedOptions, 'resolvedOptions');
+        return collator;
       };
       CollatorWrapper.prototype = OriginalCollator.prototype;
       CollatorWrapper.supportedLocalesOf = OriginalCollator.supportedLocalesOf;
@@ -78,7 +87,16 @@ export function installLanguageSpoof(config: LanguageConfig, targetWindow: any =
     try {
       const NumberFormatWrapper: any = function NumberFormat(locales?: string | string[], options?: Intl.NumberFormatOptions) {
         const effectiveLocales = locales !== undefined ? locales : config.languages;
-        return new OriginalNumberFormat(effectiveLocales, options);
+        const formatter = new OriginalNumberFormat(effectiveLocales, options);
+        const originalResolvedOptions = formatter.resolvedOptions;
+        formatter.resolvedOptions = makeNativeFunction(function resolvedOptions(this: any) {
+          const res = originalResolvedOptions.call(this);
+          if (locales === undefined) {
+            res.locale = config.language;
+          }
+          return res;
+        }, originalResolvedOptions, 'resolvedOptions');
+        return formatter;
       };
       NumberFormatWrapper.prototype = OriginalNumberFormat.prototype;
       NumberFormatWrapper.supportedLocalesOf = OriginalNumberFormat.supportedLocalesOf;
@@ -95,7 +113,16 @@ export function installLanguageSpoof(config: LanguageConfig, targetWindow: any =
     try {
       const PluralRulesWrapper: any = function PluralRules(locales?: string | string[], options?: any) {
         const effectiveLocales = locales !== undefined ? locales : config.languages;
-        return new OriginalPluralRules(effectiveLocales, options);
+        const rules = new OriginalPluralRules(effectiveLocales, options);
+        const originalResolvedOptions = rules.resolvedOptions;
+        rules.resolvedOptions = makeNativeFunction(function resolvedOptions(this: any) {
+          const res = originalResolvedOptions.call(this);
+          if (locales === undefined) {
+            res.locale = config.language;
+          }
+          return res;
+        }, originalResolvedOptions, 'resolvedOptions');
+        return rules;
       };
       PluralRulesWrapper.prototype = OriginalPluralRules.prototype;
       PluralRulesWrapper.supportedLocalesOf = OriginalPluralRules.supportedLocalesOf;
@@ -104,5 +131,23 @@ export function installLanguageSpoof(config: LanguageConfig, targetWindow: any =
     } catch (error) {
       console.warn('Failed to spoof Intl.PluralRules:', error);
     }
+  }
+
+  // 7. Spoof Number.prototype.toLocaleString
+  if (targetWindow.Number && targetWindow.Number.prototype) {
+    const originalNumberToLocaleString = targetWindow.Number.prototype.toLocaleString;
+    targetWindow.Number.prototype.toLocaleString = makeNativeFunction(function toLocaleString(this: any, locales?: any, options?: any) {
+      const effectiveLocales = locales !== undefined ? locales : config.language;
+      return originalNumberToLocaleString.call(this, effectiveLocales, options);
+    }, originalNumberToLocaleString, 'toLocaleString');
+  }
+
+  // 8. Spoof String.prototype.localeCompare
+  if (targetWindow.String && targetWindow.String.prototype) {
+    const originalLocaleCompare = targetWindow.String.prototype.localeCompare;
+    targetWindow.String.prototype.localeCompare = makeNativeFunction(function localeCompare(this: any, that: any, locales?: any, options?: any) {
+      const effectiveLocales = locales !== undefined ? locales : config.language;
+      return originalLocaleCompare.call(this, that, effectiveLocales, options);
+    }, originalLocaleCompare, 'localeCompare');
   }
 }

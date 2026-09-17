@@ -16,7 +16,7 @@ function getTimezoneDisplayName(date: Date, tzName: string): string {
   return tzName;
 }
 
-export function installTimezoneSpoof(config: TimezoneConfig, targetWindow: any = window): void {
+export function installTimezoneSpoof(config: TimezoneConfig, targetWindow: any = window, targetLocale?: string): void {
   if (!config.enabled) return;
 
   const originals = getOriginals();
@@ -46,6 +46,10 @@ export function installTimezoneSpoof(config: TimezoneConfig, targetWindow: any =
       let locales = args[0];
       let options = args[1];
 
+      if (locales === undefined && targetLocale) {
+        locales = targetLocale;
+      }
+
       if (!options || typeof options !== 'object') {
         options = { timeZone: targetTimezone };
       } else if (!options.timeZone) {
@@ -58,6 +62,9 @@ export function installTimezoneSpoof(config: TimezoneConfig, targetWindow: any =
       formatter.resolvedOptions = makeNativeFunction(function resolvedOptions(this: any) {
         const res = originalResolvedOptions.call(this);
         res.timeZone = targetTimezone;
+        if (args[0] === undefined && targetLocale) {
+          res.locale = targetLocale;
+        }
         return res;
       }, originalResolvedOptions, 'resolvedOptions');
 
@@ -131,26 +138,29 @@ export function installTimezoneSpoof(config: TimezoneConfig, targetWindow: any =
   // 5. Spoof Locale Date/Time methods
   const originalToLocaleString = originals.dateToLocaleString || targetDateProto.toLocaleString;
   targetDateProto.toLocaleString = makeNativeFunction(function toLocaleString(this: any, locales?: any, options?: any) {
+    const effectiveLocales = locales !== undefined ? locales : targetLocale;
     if (!options || !options.timeZone) {
       options = { ...(options || {}), timeZone: targetTimezone };
     }
-    return originalToLocaleString.call(this, locales, options);
+    return originalToLocaleString.call(this, effectiveLocales, options);
   }, originalToLocaleString, 'toLocaleString');
 
   const originalToLocaleDateString = originals.dateToLocaleDateString || targetDateProto.toLocaleDateString;
   targetDateProto.toLocaleDateString = makeNativeFunction(function toLocaleDateString(this: any, locales?: any, options?: any) {
+    const effectiveLocales = locales !== undefined ? locales : targetLocale;
     if (!options || !options.timeZone) {
       options = { ...(options || {}), timeZone: targetTimezone };
     }
-    return originalToLocaleDateString.call(this, locales, options);
+    return originalToLocaleDateString.call(this, effectiveLocales, options);
   }, originalToLocaleDateString, 'toLocaleDateString');
 
   const originalToLocaleTimeString = originals.dateToLocaleTimeString || targetDateProto.toLocaleTimeString;
   targetDateProto.toLocaleTimeString = makeNativeFunction(function toLocaleTimeString(this: any, locales?: any, options?: any) {
+    const effectiveLocales = locales !== undefined ? locales : targetLocale;
     if (!options || !options.timeZone) {
       options = { ...(options || {}), timeZone: targetTimezone };
     }
-    return originalToLocaleTimeString.call(this, locales, options);
+    return originalToLocaleTimeString.call(this, effectiveLocales, options);
   }, originalToLocaleTimeString, 'toLocaleTimeString');
 
   // 6. Spoof Date getters to reflect target offset

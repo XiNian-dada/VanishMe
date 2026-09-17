@@ -42,7 +42,7 @@ import { setupCanvasSpoofing } from './canvas-spoofing';
       }
       if (config.timezone && config.timezone.enabled) {
         log('Installing timezone spoof');
-        installTimezoneSpoof(config.timezone, window);
+        installTimezoneSpoof(config.timezone, window, config.language?.language);
       }
       if (config.language && config.language.enabled) {
         log('Installing language spoof');
@@ -118,7 +118,7 @@ import { setupCanvasSpoofing } from './canvas-spoofing';
                   installPermissionsSpoof(activeConfig.geolocation, iframeWin);
                 }
                 if (activeConfig.timezone && activeConfig.timezone.enabled) {
-                  installTimezoneSpoof(activeConfig.timezone, iframeWin);
+                  installTimezoneSpoof(activeConfig.timezone, iframeWin, activeConfig.language?.language);
                 }
                 if (activeConfig.language && activeConfig.language.enabled) {
                   installLanguageSpoof(activeConfig.language, iframeWin);
