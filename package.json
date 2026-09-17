@@ -1,6 +1,6 @@
 {
   "name": "vanishme",
-  "version": "1.0.0",
+  "version": "1.1.2",
   "description": "VanishMe - Browser privacy leak protection and environment consistency management tool",
   "type": "module",
   "scripts": {
