@@ -5,6 +5,7 @@ import type { PrivacyConfig, GeolocationHistory } from '../shared/types';
 
 // DOM elements
 const globalEnabledEl = document.getElementById('globalEnabled') as HTMLInputElement;
+const autoIPSyncEl = document.getElementById('autoIPSync') as HTMLInputElement;
 const debugModeEl = document.getElementById('debugMode') as HTMLInputElement;
 const globalStatusEl = document.getElementById('globalStatus') as HTMLElement;
 const currentSiteEl = document.getElementById('currentSite') as HTMLElement;
@@ -83,6 +84,7 @@ async function loadConfig() {
 
   // Populate UI
   globalEnabledEl.checked = currentConfig.globalEnabled;
+  autoIPSyncEl.checked = currentConfig.autoIPSync;
   debugModeEl.checked = currentConfig.debugMode || false;
   updateGlobalStatus();
 
@@ -122,6 +124,19 @@ async function loadConfig() {
 
 function updateGlobalStatus() {
   globalStatusEl.textContent = globalEnabledEl.checked ? '全局保护已启用' : '全局保护已禁用';
+}
+
+async function saveToggle(key: 'globalEnabled' | 'autoIPSync', enabled: boolean) {
+  try {
+    // 后台同步可能已更新地区；切换开关只修改对应字段，不写回旧表单。
+    const config = await getConfig();
+    await setConfig({ ...config, [key]: enabled });
+    await loadConfig();
+    showAutoSaveToast();
+  } catch (error) {
+    console.error('Failed to save toggle:', error);
+    alert('保存配置失败');
+  }
 }
 
 async function saveChanges() {
@@ -167,6 +182,7 @@ async function saveChanges() {
     const offsetMinutes = -utcOffsetHours * 60;
 
     currentConfig.globalEnabled = globalEnabledEl.checked;
+    currentConfig.autoIPSync = autoIPSyncEl.checked;
     currentConfig.debugMode = debugModeEl.checked;
     currentConfig.matchMode = matchModeEl.value as 'global' | 'whitelist' | 'blacklist';
     currentConfig.domainList = domainListArray;
@@ -447,9 +463,10 @@ async function handleResetFonts() {
 // Event listeners
 globalEnabledEl.addEventListener('change', () => {
   updateGlobalStatus();
-  saveChanges();
+  void saveToggle('globalEnabled', globalEnabledEl.checked);
 });
 debugModeEl.addEventListener('change', () => saveChanges());
+autoIPSyncEl.addEventListener('change', () => { void saveToggle('autoIPSync', autoIPSyncEl.checked); });
 matchModeEl.addEventListener('blur', () => saveChanges());
 domainListEl.addEventListener('blur', () => saveChanges());
 

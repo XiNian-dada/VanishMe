@@ -63,6 +63,11 @@
     <section class="profile-section">
       <h2>快速配置</h2>
       <button id="getFromIP" class="btn-primary" style="width: 100%; margin-bottom: 12px;">🌐 从 IP 自动配置</button>
+      <label class="checkbox-label">
+        <input type="checkbox" id="autoIPSync" aria-describedby="autoIPSyncHint">
+        <span>随出口 IP 自动同步地区设置</span>
+      </label>
+      <p id="autoIPSyncHint" class="hint">默认关闭。开启后通过 ipwhois.app 每 5 分钟检测 IP；首次开启或 IP 变化时覆盖位置、时区和语言，并取消预设选中。关闭全局保护时暂停。</p>
       <div class="profile-cards">
         <button class="profile-card" data-profile="singapore">
           <div class="profile-card-name">新加坡</div>
