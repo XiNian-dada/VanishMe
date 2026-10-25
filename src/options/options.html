@@ -23,7 +23,12 @@
           <input type="checkbox" id="debugMode">
           <span>调试模式（控制台输出详细日志）</span>
         </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="autoIPSync" aria-describedby="autoIPSyncHint">
+          <span>随出口 IP 自动同步地区设置</span>
+        </label>
       </div>
+      <p id="autoIPSyncHint" class="hint">默认关闭，保存后生效。开启后通过 ipwhois.app 每 5 分钟检测出口 IP；首次开启或 IP 变化时覆盖地理位置、时区和语言，并取消当前预设的选中状态。关闭全局保护时暂停同步。</p>
     </section>
 
     <section class="section">

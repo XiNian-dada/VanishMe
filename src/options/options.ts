@@ -7,6 +7,7 @@ let currentConfig: PrivacyConfig;
 
 // DOM elements
 const globalEnabledEl = document.getElementById('globalEnabled') as HTMLInputElement;
+const autoIPSyncEl = document.getElementById('autoIPSync') as HTMLInputElement;
 const debugModeEl = document.getElementById('debugMode') as HTMLInputElement;
 const matchModeEl = document.getElementById('matchMode') as HTMLSelectElement;
 const domainListEl = document.getElementById('domainList') as HTMLTextAreaElement;
@@ -58,6 +59,7 @@ async function loadConfig() {
 
   // Global settings
   globalEnabledEl.checked = currentConfig.globalEnabled;
+  autoIPSyncEl.checked = currentConfig.autoIPSync;
   debugModeEl.checked = currentConfig.debugMode || false;
 
   // Match mode
@@ -446,6 +448,7 @@ async function saveSettings() {
     const offsetMinutes = -utcOffsetHours * 60;
 
     currentConfig.globalEnabled = globalEnabledEl.checked;
+    currentConfig.autoIPSync = autoIPSyncEl.checked;
     currentConfig.debugMode = debugModeEl.checked;
     currentConfig.matchMode = matchModeEl.value as 'global' | 'whitelist' | 'blacklist';
     currentConfig.domainList = domainListArray;

@@ -74,6 +74,7 @@ export type MatchMode = 'global' | 'whitelist' | 'blacklist';
 
 export interface PrivacyConfig {
   globalEnabled: boolean;
+  autoIPSync: boolean;
   debugMode: boolean; // 调试模式：是否在控制台输出详细日志
   matchMode: MatchMode; // 匹配模式：全局、白名单、黑名单
   domainList: string[]; // 域名列表（用于白名单或黑名单）
