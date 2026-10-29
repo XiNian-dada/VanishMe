@@ -202,7 +202,7 @@ Modern platforms do not merely inspect your IP address — they deeply inspect y
 
 #### Method 1: Direct Installation (Recommended)
 
-1. Download the latest `VanishMe-v1.2.0.zip` from [Releases](https://github.com/XiNian-dada/VanishMe/releases)。
+1. Download the latest `VanishMe-v1.2.0.zip` from [Releases](https://github.com/XiNian-dada/VanishMe/releases).
 2. Unzip the file to extract the `dist` folder.
 3. Open Chrome or Edge and navigate to:
    - **Edge**: `edge://extensions/`
@@ -222,4 +222,20 @@ npm run build
 
 ---
 
-**Learn AI at LinuxDo: [https://linux.do/](https://linux.do/)**
+## 📈 Star 历史趋势 / Star History
+
+<div align="center">
+
+<a href="https://star-history.com/#XiNian-dada/VanishMe&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=XiNian-dada/VanishMe&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=XiNian-dada/VanishMe&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=XiNian-dada/VanishMe&type=Date" width="100%" />
+ </picture>
+</a>
+
+</div>
+
+---
+
+**学 AI 上 LinuxDo: [https://linux.do/](https://linux.do/)** / **Learn AI at LinuxDo: [https://linux.do/](https://linux.do/)**
