@@ -13,7 +13,7 @@ export async function getConfig(): Promise<PrivacyConfig> {
 
       // 合并测试网站域名，确保检测站开箱即用
       const testDomains = DEFAULT_CONFIG.domainList.filter(d => 
-        d.includes('iprisk') || d.includes('browserscan') || d.includes('browserleaks') || d.includes('ipleak') || d.includes('deviceinfo')
+        d.includes('iprisk') || d.includes('browserscan') || d.includes('browserleaks') || d.includes('ipleak') || d.includes('deviceinfo') || d.includes('iplark') || d.includes('fuck-claude')
       );
       const mergedDomainList = Array.from(new Set([
         ...(stored.domainList || DEFAULT_CONFIG.domainList),
@@ -103,7 +103,8 @@ export async function getEffectiveConfigForUrl(url: string): Promise<InjectedCon
       geolocation: config.geolocation,
       language: config.language,
       timezone: config.timezone,
-      canvas: config.canvas
+      canvas: config.canvas,
+      webrtc: config.webrtc
     };
   }
 
@@ -124,7 +125,8 @@ export async function getEffectiveConfigForUrl(url: string): Promise<InjectedCon
     geolocation: config.geolocation,
     language: config.language,
     timezone: config.timezone,
-    canvas: config.canvas
+    canvas: config.canvas,
+    webrtc: config.webrtc
   };
 }
 

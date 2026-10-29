@@ -1,148 +1,389 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VanishMe Leak Test</title>
+  <title>VanishMe 隐私指纹与环境泄漏深度排查中心</title>
   <link rel="stylesheet" href="leak-test.css">
 </head>
-<body>
-  <div class="container">
-    <header>
-      <h1>VanishMe Leak Test</h1>
-      <p class="subtitle">View information accessible to web pages</p>
+<body class="theme-dark">
+  <div class="app-layout">
+    <!-- 顶部状态栏 -->
+    <header class="header">
+      <div class="header-left">
+        <div class="logo-box">
+          <span class="logo-icon">🛡️</span>
+          <div>
+            <h1 class="logo-title">VanishMe 深度隐私与指纹排查中心</h1>
+            <p class="logo-subtitle">超严苛环境泄漏诊断 · 仿照 iplark / browserscan / iprisk / fuck-claude 工业级规范</p>
+          </div>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="status-chip" id="profileBadge">
+          <span class="chip-dot"></span>
+          <span id="activeProfileText">加载预设中...</span>
+        </div>
+        <div class="status-chip chip-success" id="protectionBadge">
+          <span class="chip-icon">⚡</span>
+          <span id="protectionStatusText">保护已激活</span>
+        </div>
+        <button id="retestBtn" class="btn btn-primary">
+          <span class="btn-icon">🔄</span> 重新深度排查
+        </button>
+        <button id="copyReportBtn" class="btn btn-secondary">
+          <span class="btn-icon">📋</span> 复制诊断报告
+        </button>
+      </div>
     </header>
 
-    <section class="test-section">
-      <h2>Geolocation</h2>
-      <div class="test-content">
-        <div class="test-item">
-          <span class="label">navigator.geolocation exists:</span>
-          <span id="geolocationExists" class="value">-</span>
-        </div>
-        <div class="test-item">
-          <span class="label">getCurrentPosition result:</span>
-          <span id="geolocationResult" class="value">-</span>
-        </div>
-        <div class="test-item">
-          <span class="label">Latitude:</span>
-          <span id="latitude" class="value">-</span>
-        </div>
-        <div class="test-item">
-          <span class="label">Longitude:</span>
-          <span id="longitude" class="value">-</span>
-        </div>
-        <div class="test-item">
-          <span class="label">Accuracy:</span>
-          <span id="accuracy" class="value">-</span>
-        </div>
-        <div class="test-item">
-          <span class="label">Permission status:</span>
-          <span id="geolocationPermission" class="value">-</span>
-        </div>
-        <button id="testGeolocation" class="btn-primary">Test Geolocation</button>
-        <button id="testWatchPosition" class="btn-secondary">Test watchPosition</button>
+    <!-- 视角切换器 -->
+    <div class="view-switcher-bar">
+      <div class="switcher-group">
+        <button id="viewProtectedBtn" class="view-btn active">
+          🛡️ 网页受保护视角 (普通网站可见的伪装结果)
+        </button>
+        <button id="viewComparisonBtn" class="view-btn">
+          ⚖️ 底层真实环境 vs 伪装效果双向对比
+        </button>
       </div>
-    </section>
-
-    <section class="test-section">
-      <h2>Language</h2>
-      <div class="test-content">
-        <div class="test-item">
-          <span class="label">navigator.language:</span>
-          <span id="navigatorLanguage" class="value">-</span>
-        </div>
-        <div class="test-item">
-          <span class="label">navigator.languages:</span>
-          <span id="navigatorLanguages" class="value">-</span>
-        </div>
-        <div class="test-item">
-          <span class="label">Intl locale:</span>
-          <span id="intlLocale" class="value">-</span>
-        </div>
+      <div class="switcher-hint" id="switcherHint">
+        当前展示：目标网站（如 Claude、OpenAI、BrowserScan）在当前配置下读取到的真实数据
       </div>
-    </section>
+    </div>
 
-    <section class="test-section">
-      <h2>Timezone</h2>
-      <div class="test-content">
-        <div class="test-item">
-          <span class="label">Intl.DateTimeFormat timezone:</span>
-          <span id="intlTimezone" class="value">-</span>
+    <!-- 顶部核心风控仪表盘 -->
+    <section class="dashboard-grid">
+      <!-- 综合隐私评分卡 -->
+      <div class="card metric-card">
+        <div class="metric-header">
+          <span class="metric-title">综合匿名与隐私防护评分</span>
+          <span class="badge" id="privacyGradeBadge">计算中</span>
         </div>
-        <div class="test-item">
-          <span class="label">getTimezoneOffset():</span>
-          <span id="timezoneOffset" class="value">-</span>
+        <div class="metric-body">
+          <div class="score-circle" id="scoreCircle">
+            <span class="score-number" id="privacyScore">--</span>
+            <span class="score-unit">/ 100</span>
+          </div>
+          <div class="metric-stats">
+            <div class="stat-item stat-pass"><span class="stat-count" id="statPassCount">0</span><span>项通过</span></div>
+            <div class="stat-item stat-warn"><span class="stat-count" id="statWarnCount">0</span><span>项预警</span></div>
+            <div class="stat-item stat-fail"><span class="stat-count" id="statFailCount">0</span><span>项高危</span></div>
+          </div>
         </div>
-        <div class="test-item">
-          <span class="label">Date.toString():</span>
-          <span id="dateToString" class="value">-</span>
+        <p class="metric-desc" id="privacySummaryText">正在对当前浏览器环境进行数十项反关联指纹排查...</p>
+      </div>
+
+      <!-- “你是中国人吗” / Claude 封禁风控雷达 -->
+      <div class="card metric-card card-accent-claude">
+        <div class="metric-header">
+          <span class="metric-title">🇨🇳 Claude / OpenAI 区域封禁风险雷达</span>
+          <span class="badge" id="claudeBadge">检测中</span>
         </div>
-        <div class="test-item">
-          <span class="label">Date.toLocaleString():</span>
-          <span id="dateToLocaleString" class="value">-</span>
+        <div class="metric-body">
+          <div class="radar-status-box" id="claudeStatusBox">
+            <div class="radar-icon" id="claudeIcon">⏳</div>
+            <div class="radar-text">
+              <div class="radar-title" id="claudeTitle">正在分析特征...</div>
+              <div class="radar-sub" id="claudeSub">时区 · 语言 · 中文字体 · 区域设置</div>
+            </div>
+          </div>
+        </div>
+        <div class="radar-tags" id="claudeTagsContainer">
+          <!-- 动态风险标签 -->
         </div>
       </div>
-    </section>
 
-    <section class="test-section">
-      <h2>WebRTC</h2>
-      <div class="test-content">
-        <div class="test-item">
-          <span class="label">RTCPeerConnection exists:</span>
-          <span id="rtcExists" class="value">-</span>
+      <!-- 商业反爬虫 & Hook 隐蔽性评分 -->
+      <div class="card metric-card">
+        <div class="metric-header">
+          <span class="metric-title">🔬 商业反作弊 & Hook 隐蔽性 (CreepJS 级)</span>
+          <span class="badge" id="antiDetectBadge">审计中</span>
         </div>
-        <div class="test-item">
-          <span class="label">ICE candidates:</span>
-          <span id="iceCandidates" class="value">-</span>
+        <div class="metric-body">
+          <div class="meter-box">
+            <div class="meter-bar-container">
+              <div class="meter-bar" id="antiDetectBar" style="width: 100%;"></div>
+            </div>
+            <div class="meter-labels">
+              <span id="antiDetectStatusText">严格符合 ES 原生规范</span>
+              <span id="antiDetectScoreText">100 分</span>
+            </div>
+          </div>
+          <div class="checklist-mini">
+            <div class="check-mini-row" id="chkToString"><span class="mini-icon">✔</span> Function.toString 原生代码伪装</div>
+            <div class="check-mini-row" id="chkDescriptor"><span class="mini-icon">✔</span> 原型描述符无 .prototype 漏洞</div>
+            <div class="check-mini-row" id="chkIframe"><span class="mini-icon">✔</span> 动态 Iframe 防原型穿透</div>
+            <div class="check-mini-row" id="chkStack"><span class="mini-icon">✔</span> Error.stack 错误堆栈净化</div>
+          </div>
         </div>
-        <button id="testWebRTC" class="btn-primary">Test WebRTC</button>
-        <p class="note">Note: Limited detection without external STUN servers</p>
       </div>
-    </section>
 
-    <section class="test-section">
-      <h2>Navigator Information</h2>
-      <div class="test-content">
-        <div class="test-item">
-          <span class="label">navigator.platform:</span>
-          <span id="platform" class="value">-</span>
+      <!-- 网络出口与 IP 风险评级 (iplark / iprisk) -->
+      <div class="card metric-card">
+        <div class="metric-header">
+          <span class="metric-title">🌐 出口 IP 与 WebRTC 穿透评级</span>
+          <span class="badge" id="netBadge">探测中</span>
         </div>
-        <div class="test-item">
-          <span class="label">navigator.hardwareConcurrency:</span>
-          <span id="hardwareConcurrency" class="value">-</span>
+        <div class="metric-body">
+          <div class="net-summary-box">
+            <div class="net-ip-row">
+              <span class="net-flag" id="netFlag">🌍</span>
+              <span class="net-ip-text" id="netIpText">正在探测出口 IP...</span>
+            </div>
+            <div class="net-meta-row">
+              <span class="tag" id="netLocationTag">位置未知</span>
+              <span class="tag" id="netTypeTag">IP 类型检测中</span>
+              <span class="tag" id="netWebrtcTag">WebRTC 检测中</span>
+            </div>
+          </div>
         </div>
-        <div class="test-item">
-          <span class="label">navigator.deviceMemory:</span>
-          <span id="deviceMemory" class="value">-</span>
-        </div>
-        <div class="test-item">
-          <span class="label">navigator.userAgent:</span>
-          <span id="userAgent" class="value">-</span>
-        </div>
-        <div class="test-item">
-          <span class="label">screen.width × height:</span>
-          <span id="screenSize" class="value">-</span>
-        </div>
-        <div class="test-item">
-          <span class="label">screen.colorDepth:</span>
-          <span id="colorDepth" class="value">-</span>
-        </div>
-        <div class="test-item">
-          <span class="label">devicePixelRatio:</span>
-          <span id="devicePixelRatio" class="value">-</span>
+        <div class="net-cross-row" id="netCrossSummary">
+          正在核验 IP 时区与浏览器时区一致性...
         </div>
       </div>
     </section>
 
-    <footer>
-      <p class="disclaimer">
-        This page displays information that web pages can access through JavaScript.
-        VanishMe spoofs some of these values at the JavaScript layer but cannot guarantee complete anonymity.
-      </p>
+    <!-- 对比视图容器 (默认隐藏，切换时展示) -->
+    <section class="section comparison-view" id="comparisonSection" style="display: none;">
+      <div class="section-header">
+        <h2>⚖️ 原始原生环境 vs 网页受保护环境双向对比</h2>
+        <span class="section-tag">直观呈现 VanishMe 防御成效</span>
+      </div>
+      <div class="table-container">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th style="width: 20%;">测试维度</th>
+              <th style="width: 32%;">未保护的原始真实环境 (Native)</th>
+              <th style="width: 32%;">普通网页看到的受保护环境 (Protected)</th>
+              <th style="width: 16%;">防御成效</th>
+            </tr>
+          </thead>
+          <tbody id="comparisonTableBody">
+            <!-- 动态生成对比行 -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 详细审计项目分区 (主视图) -->
+    <main class="main-sections" id="mainSections">
+
+      <!-- 分区 1: “你是中国人吗” / Claude 专项深度排查 -->
+      <section class="section" id="secClaude">
+        <div class="section-header">
+          <div class="section-header-title">
+            <span class="section-emoji">🇨🇳</span>
+            <div>
+              <h2>“你是中国人吗” / Claude & 跨境 AI 封禁深度排查</h2>
+              <p class="section-desc">比开源 FuckClaude 工具更严格：全方位排查时区、Offset、全套 7 种 Intl 国际化 API、45+ 款中文字体、语音模型与地理坐标</p>
+            </div>
+          </div>
+          <span class="badge badge-info" id="claudeScoreBadge">排查完成</span>
+        </div>
+        <div class="items-grid" id="claudeChecksGrid">
+          <!-- 动态加载检查卡片 -->
+        </div>
+
+        <!-- 中文字体特征详情展示框 -->
+        <div class="sub-panel">
+          <div class="sub-panel-header">
+            <h4>本地 45+ 款典型中文字体嗅探状态 (Canvas 差分度量 + document.fonts.check)</h4>
+            <span class="sub-panel-meta" id="fontScanMeta">扫描中...</span>
+          </div>
+          <div class="fonts-capsules-container" id="fontsCapsules">
+            <!-- 动态字体标签 -->
+          </div>
+          <p class="sub-panel-note">
+            💡 提示：即使时区和语言修改为海外，很多用户因电脑中装有【微软雅黑/苹方/宋体】而被 Claude/OpenAI 的前端字体探针识别。
+            开启 VanishMe 的【Canvas 字体屏蔽/混淆】功能可使网页测量返回 fallback 宽度，完美抵御字体嗅探！
+          </p>
+        </div>
+      </section>
+
+      <!-- 分区 2: 网络与出口 IP / WebRTC 穿透检测 -->
+      <section class="section" id="secNetwork">
+        <div class="section-header">
+          <div class="section-header-title">
+            <span class="section-emoji">🌐</span>
+            <div>
+              <h2>出口网络与 IP / WebRTC 穿透检测 (iplark / iprisk 规范)</h2>
+              <p class="section-desc">真实 STUN 穿透收集、本地局域网 IP / 真实公网 IP 泄露测试、IP 时区与浏览器时区交叉核验</p>
+            </div>
+          </div>
+          <button id="btnTriggerWebRTC" class="btn btn-sm btn-primary">🔄 重测 WebRTC 穿透</button>
+        </div>
+
+        <!-- IP 详情卡 -->
+        <div class="ip-info-box" id="ipInfoBox">
+          <div class="ip-info-grid">
+            <div class="ip-info-item"><span class="k">出口 IP 地址</span><span class="v" id="valNetIp">-</span></div>
+            <div class="ip-info-item"><span class="k">归属国家 / 城市</span><span class="v" id="valNetGeo">-</span></div>
+            <div class="ip-info-item"><span class="k">运营商 (ISP)</span><span class="v" id="valNetIsp">-</span></div>
+            <div class="ip-info-item"><span class="k">ASN 网络号</span><span class="v" id="valNetAsn">-</span></div>
+            <div class="ip-info-item"><span class="k">IP 类型 (iprisk)</span><span class="v" id="valNetType">-</span></div>
+            <div class="ip-info-item"><span class="k">IP 对应时区</span><span class="v" id="valNetTz">-</span></div>
+          </div>
+        </div>
+
+        <!-- WebRTC 状态卡 -->
+        <div class="webrtc-box">
+          <div class="webrtc-header">
+            <h4>WebRTC STUN 收集结果 (对齐 Google & Cloudflare STUN)</h4>
+            <span class="badge" id="webrtcStatusBadge">检测中</span>
+          </div>
+          <div class="webrtc-candidates" id="webrtcCandidatesBox">
+            正在发起 STUN 候选收集...
+          </div>
+        </div>
+
+        <div class="items-grid" id="networkChecksGrid">
+          <!-- 动态加载检查项 -->
+        </div>
+      </section>
+
+      <!-- 分区 3: 浏览器指纹全景剖析 (BrowserScan 规范) -->
+      <section class="section" id="secFingerprint">
+        <div class="section-header">
+          <div class="section-header-title">
+            <span class="section-emoji">🔍</span>
+            <div>
+              <h2>浏览器指纹全景深度剖析 (BrowserScan 规范)</h2>
+              <p class="section-desc">Canvas 2D 绘图特征、动态噪点校验、底层 WebGL 真实显卡与系统架构一致性、音频哈希</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Canvas 预览与 WebGL 展示面板 -->
+        <div class="fp-showcase-grid">
+          <div class="showcase-card">
+            <h4>Canvas 2D 渲染采样与噪点测试</h4>
+            <div class="canvas-preview-box">
+              <img id="canvasPreviewImg" alt="Canvas Sample Preview" class="canvas-img" />
+              <div class="canvas-meta">
+                <div>指纹哈希: <code id="canvasHashText">--</code></div>
+                <div>噪点注入状态: <span class="badge" id="canvasNoiseBadge">--</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="showcase-card">
+            <h4>底层显卡驱动 (WebGL Unmasked GPU)</h4>
+            <div class="webgl-meta">
+              <div class="meta-row"><span class="k">Unmasked Renderer:</span> <code class="v" id="webglRendererText">--</code></div>
+              <div class="meta-row"><span class="k">Unmasked Vendor:</span> <span class="v" id="webglVendorText">--</span></div>
+              <div class="meta-row"><span class="k">架构一致性:</span> <span class="badge" id="webglCompatBadge">--</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="items-grid" id="fingerprintChecksGrid">
+          <!-- 动态检查项 -->
+        </div>
+      </section>
+
+      <!-- 分区 4: 极严反作弊与 Hook 隐蔽性审计 -->
+      <section class="section" id="secAntiDetect">
+        <div class="section-header">
+          <div class="section-header-title">
+            <span class="section-emoji">🔬</span>
+            <div>
+              <h2>高强度反作弊与 Hook 隐蔽性深度审计 (CreepJS 严格规范)</h2>
+              <p class="section-desc">比普通检测网站更严格：测试 Function.toString、Getter 描述符无 prototype 漏洞、Iframe 沙盒原型穿透、堆栈清洗</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="antidetect-audit-container" id="antiDetectAuditDetails">
+          <!-- 动态渲染反检测排查项 -->
+        </div>
+      </section>
+
+      <!-- 分区 5: Geolocation 专用无警告测试与外部测试指导 (Issue #2 修复) -->
+      <section class="section" id="secGeolocation">
+        <div class="section-header">
+          <div class="section-header-title">
+            <span class="section-emoji">📍</span>
+            <div>
+              <h2>Geolocation 伪装定位安全测试 (Issue #2 专属修复)</h2>
+              <p class="section-desc">
+                解决扩展页面触发定位权限警告的问题：VanishMe 在网页环境使用安全伪装接口，无需向 Chrome 申请底层硬件 GPS 权限，0 警告防泄漏！
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="geo-panel">
+          <div class="geo-controls">
+            <button id="btnRunGeolocation" class="btn btn-primary">🎯 测试 Geolocation 定位读取</button>
+            <button id="btnWatchGeolocation" class="btn btn-secondary">📡 开启 watchPosition 动态监听</button>
+          </div>
+
+          <div class="geo-results-box">
+            <div class="geo-row"><span class="label">API 可用性:</span> <span class="val" id="geoAvailVal">-</span></div>
+            <div class="geo-row"><span class="label">读取状态:</span> <span class="val" id="geoStatusVal">就绪</span></div>
+            <div class="geo-row"><span class="label">纬度 (Latitude):</span> <span class="val text-highlight" id="geoLatVal">-</span></div>
+            <div class="geo-row"><span class="label">经度 (Longitude):</span> <span class="val text-highlight" id="geoLonVal">-</span></div>
+            <div class="geo-row"><span class="label">精度 (Accuracy):</span> <span class="val" id="geoAccVal">-</span></div>
+            <div class="geo-row"><span class="label">权限状态 (Permission):</span> <span class="val" id="geoPermVal">-</span></div>
+          </div>
+
+          <div class="geo-explanation">
+            <div class="explanation-title">💡 为什么此测试不会触发 Chrome 的 geolocation 权限警告？</div>
+            <p>
+              在旧版本中，内置测试页直接调用 Chrome 原生 <code>navigator.geolocation</code>，因扩展未在 <code>manifest.json</code> 中声明 <code>geolocation</code> 权限而报错。
+              而在普通网站中，VanishMe 会自动拦截定位请求并直接返回配置好的虚拟海外坐标。
+              现在本测试页与普通网站完全对齐：当开启定位伪装时，调用完全在受保护接口中运行，既不向 Chrome 申请敏感物理权限（避免刺探用户真实物理坐标），也不会产生任何警告！
+            </p>
+          </div>
+
+          <div class="external-test-guide">
+            <div class="guide-header">
+              <span>🌐 在普通真实网站中验证伪装效果</span>
+            </div>
+            <div class="guide-body">
+              <p>您也可以在任意普通网站中测试 VanishMe 的实际防御表现：</p>
+              <div class="guide-links">
+                <a href="https://iplark.com" target="_blank" class="guide-link">🔗 打开 iplark.com</a>
+                <a href="https://www.browserscan.net" target="_blank" class="guide-link">🔗 打开 browserscan.net</a>
+                <a href="https://iprisk.top" target="_blank" class="guide-link">🔗 打开 iprisk.top</a>
+                <a href="https://fuck-claude.app" target="_blank" class="guide-link">🔗 打开 fuck-claude.app</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 底部版权与说明 -->
+    <footer class="footer">
+      <div class="footer-content">
+        <p>VanishMe · 高级浏览器隐私防护与环境一致性管理工具 · 本地 100% 离线诊断引擎，绝不上传任何用户指纹</p>
+        <p class="footer-links">
+          <a href="https://github.com/XiNian-dada/VanishMe" target="_blank">GitHub 仓库</a> ·
+          <a href="https://github.com/XiNian-dada/VanishMe/issues/2" target="_blank">Issue #2 跟踪</a>
+        </p>
+      </div>
     </footer>
   </div>
 
+  <script>
+    // 在加载任何伪装之前捕获真实底层原生环境快照
+    window.__VM_NATIVE_SNAPSHOT__ = {
+      timezone: (function() { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unknown'; } catch { return 'Unknown'; } })(),
+      timezoneOffset: new Date().getTimezoneOffset(),
+      dateString: new Date().toString(),
+      language: navigator.language || 'N/A',
+      languages: navigator.languages ? Array.from(navigator.languages) : [],
+      intlLocale: (function() { try { return new Intl.DateTimeFormat().resolvedOptions().locale || 'N/A'; } catch { return 'N/A'; } })(),
+      platform: navigator.platform || 'N/A',
+      userAgent: navigator.userAgent || 'N/A',
+      geolocationAvailable: Boolean(navigator.geolocation)
+    };
+  </script>
+  <script src="../injected/injected.js"></script>
   <script type="module" src="leak-test.js"></script>
 </body>
 </html>

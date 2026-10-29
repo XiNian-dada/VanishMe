@@ -1,11 +1,13 @@
 import type { InjectedConfig } from '../shared/types';
-import { saveOriginalMethods, makeNativeFunction } from './utils';
+import { saveOriginalMethods, makeNativeFunction, createNativeGetter } from './utils';
 import { installGeolocationSpoof } from './geolocation';
 import { installPermissionsSpoof } from './permissions';
 import { installTimezoneSpoof } from './timezone';
 import { installLanguageSpoof } from './language';
 import { installAntiDetection } from './anti-detection';
 import { setupCanvasSpoofing } from './canvas-spoofing';
+import { installSpeechSpoof } from './speech';
+import { installWebRTCSpoof } from './webrtc';
 
 (function() {
   // 1. Install anti-detection and save originals synchronously
@@ -22,6 +24,28 @@ import { setupCanvasSpoofing } from './canvas-spoofing';
     }
   };
 
+  function applyConfigToWindow(config: InjectedConfig, targetWin: any) {
+    if (!config || !config.enabled || !targetWin) return;
+    try {
+      if (config.geolocation && config.geolocation.enabled) {
+        installGeolocationSpoof(config.geolocation, targetWin);
+        installPermissionsSpoof(config.geolocation, targetWin);
+      }
+      if (config.timezone && config.timezone.enabled) {
+        installTimezoneSpoof(config.timezone, targetWin, config.language?.language);
+      }
+      if (config.language && config.language.enabled) {
+        installLanguageSpoof(config.language, targetWin);
+        installSpeechSpoof(targetWin);
+      }
+      if (config.webrtc && config.webrtc.enabled) {
+        installWebRTCSpoof(config.webrtc, targetWin);
+      }
+    } catch (e) {
+      log('Failed to apply config to sub-window:', e);
+    }
+  }
+
   function applyConfig(config: InjectedConfig) {
     if (!config) return;
     activeConfig = config;
@@ -35,19 +59,7 @@ import { setupCanvasSpoofing } from './canvas-spoofing';
     log('Applying spoofing configuration...');
 
     try {
-      if (config.geolocation && config.geolocation.enabled) {
-        log('Installing geolocation spoof');
-        installGeolocationSpoof(config.geolocation, window);
-        installPermissionsSpoof(config.geolocation, window);
-      }
-      if (config.timezone && config.timezone.enabled) {
-        log('Installing timezone spoof');
-        installTimezoneSpoof(config.timezone, window, config.language?.language);
-      }
-      if (config.language && config.language.enabled) {
-        log('Installing language spoof');
-        installLanguageSpoof(config.language, window);
-      }
+      applyConfigToWindow(config, window);
       if (config.canvas && config.canvas.enabled) {
         log('Installing Canvas spoof');
         setupCanvasSpoofing(config.canvas);
@@ -102,8 +114,31 @@ import { setupCanvasSpoofing } from './canvas-spoofing';
   // Request latest config from content script
   window.postMessage({ type: '__VM_REQ__', nonce }, '*');
 
-  // 4. Hook iframe creation cleanly disguised as native code
+  // 4. Hook iframe creation and contentWindow cleanly disguised as native code
   try {
+    // Intercept HTMLIFrameElement.prototype.contentWindow for synchronous / detached iframe access
+    if (typeof HTMLIFrameElement !== 'undefined' && HTMLIFrameElement.prototype) {
+      const origContentWindowDesc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow');
+      if (origContentWindowDesc && origContentWindowDesc.get) {
+        const origGet = origContentWindowDesc.get;
+        const wrappedContentWindow = function(this: HTMLIFrameElement) {
+          const iWin = origGet.call(this);
+          if (iWin && (iWin as any) !== window && !(iWin as any).__vm_injected) {
+            (iWin as any).__vm_injected = true;
+            if (activeConfig && activeConfig.enabled) {
+              applyConfigToWindow(activeConfig, iWin);
+            }
+          }
+          return iWin;
+        };
+        Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
+          get: createNativeGetter('contentWindow', wrappedContentWindow, origGet) as any,
+          configurable: true,
+          enumerable: true
+        });
+      }
+    }
+
     const originalCreateElement = document.createElement;
     const wrappedCreateElement = function createElement(this: Document, tagName: string, options?: any) {
       const element = originalCreateElement.call(this, tagName, options);
@@ -113,16 +148,7 @@ import { setupCanvasSpoofing } from './canvas-spoofing';
             const iframeWin = (element as HTMLIFrameElement).contentWindow;
             if (iframeWin && (iframeWin as any) !== window) {
               if (activeConfig && activeConfig.enabled) {
-                if (activeConfig.geolocation && activeConfig.geolocation.enabled) {
-                  installGeolocationSpoof(activeConfig.geolocation, iframeWin);
-                  installPermissionsSpoof(activeConfig.geolocation, iframeWin);
-                }
-                if (activeConfig.timezone && activeConfig.timezone.enabled) {
-                  installTimezoneSpoof(activeConfig.timezone, iframeWin, activeConfig.language?.language);
-                }
-                if (activeConfig.language && activeConfig.language.enabled) {
-                  installLanguageSpoof(activeConfig.language, iframeWin);
-                }
+                applyConfigToWindow(activeConfig, iframeWin);
               }
             }
           } catch {}

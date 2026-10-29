@@ -111,7 +111,8 @@ window.addEventListener('message', async (event) => {
       geolocation: config.geolocation,
       timezone: config.timezone,
       language: config.language,
-      canvas: config.canvas
+      canvas: config.canvas,
+      webrtc: config.webrtc
     };
 
     window.postMessage({
@@ -137,7 +138,8 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
       geolocation: config.geolocation,
       timezone: config.timezone,
       language: config.language,
-      canvas: config.canvas
+      canvas: config.canvas,
+      webrtc: config.webrtc
     };
 
     window.postMessage({

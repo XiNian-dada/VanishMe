@@ -1,5 +1,6 @@
 node_modules/
 dist/
+VanishMe-*/
 *.log
 *.zip
 .DS_Store

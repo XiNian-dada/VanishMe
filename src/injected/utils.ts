@@ -62,23 +62,53 @@ export function safeDefineProperty(obj: any, prop: string, descriptor: PropertyD
   }
 }
 
+function isConstructor(fn: any): boolean {
+  if (!fn || typeof fn !== 'function') return false;
+  try {
+    Reflect.construct(String, [], fn);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Hide function modification by making it look native
 export function makeNativeFunction<T extends Function = Function>(func: T, originalFunc?: Function, customName?: string): T {
   const name = customName !== undefined ? customName : (originalFunc ? originalFunc.name : func.name);
   const length = originalFunc ? originalFunc.length : func.length;
+  const constructible = isConstructor(originalFunc || func);
+
+  let targetFunc: any;
+  if (constructible) {
+    targetFunc = function(this: any, ...args: any[]) {
+      if (new.target) {
+        return Reflect.construct(func, args, new.target);
+      }
+      return func.apply(this, args);
+    };
+    if (func.prototype) {
+      targetFunc.prototype = func.prototype;
+    }
+  } else {
+    // Use concise method syntax so the function has NO .prototype and CANNOT be constructed with new
+    const methodHolder = {
+      [name](this: any, ...args: any[]) {
+        return func.apply(this, args);
+      }
+    };
+    targetFunc = methodHolder[name];
+  }
+
+  try {
+    Object.defineProperty(targetFunc, 'name', { value: name, configurable: true });
+    Object.defineProperty(targetFunc, 'length', { value: length, configurable: true });
+  } catch {}
 
   const handler: ProxyHandler<any> = {
     apply(target: any, thisArg: any, args: any[]) {
-      return func.apply(thisArg, args);
+      return targetFunc.apply(thisArg, args);
     },
     get(target: any, prop: string | symbol, receiver: any) {
-      if (prop === 'toString') {
-        const toStringFn = function toString() {
-          return `function ${name}() { [native code] }`;
-        };
-        spoofedFunctionSet.add(toStringFn);
-        return toStringFn;
-      }
       if (prop === 'name') {
         return name;
       }
@@ -89,17 +119,25 @@ export function makeNativeFunction<T extends Function = Function>(func: T, origi
     }
   };
 
-  const proxied = new Proxy(func, handler);
+  if (constructible) {
+    handler.construct = function(target: any, args: any[], newTarget: any) {
+      return Reflect.construct(targetFunc, args, newTarget);
+    };
+  }
+
+  const proxied = new Proxy(targetFunc, handler);
   spoofedFunctionSet.add(proxied);
+  spoofedFunctionSet.add(targetFunc);
 
   return proxied as T;
 }
 
 // Create a native-looking getter function that satisfies strict fingerprint checks:
 // 1. Natural ES6 getter has no .prototype ('prototype' in getter === false)
-// 2. Own property names: ['length', 'name']
-// 3. No own 'arguments' or 'caller'
-// 4. Function.prototype.toString returns 'function get <name>() { [native code] }'
+// 2. Cannot be called with new (throws TypeError)
+// 3. Own property names: ['length', 'name']
+// 4. Throws TypeError: Illegal invocation when called with incompatible receiver ({}, null, etc.)
+// 5. Function.prototype.toString returns 'function get <name>() { [native code] }'
 export function createNativeGetter(
   name: string,
   getterImpl: (this: any) => any,
@@ -108,6 +146,17 @@ export function createNativeGetter(
   const cleanName = name.startsWith('get ') ? name.slice(4) : name;
   const holder = {
     get [cleanName](): any {
+      // Illegal invocation defense (CreepJS & DataDome check)
+      if (['language', 'languages', 'userLanguage', 'browserLanguage'].includes(cleanName)) {
+        const isNav = Boolean(
+          this &&
+          (this.constructor?.name?.includes('Navigator') ||
+           (typeof Navigator !== 'undefined' && this instanceof Navigator))
+        );
+        if (!isNav) {
+          throw new TypeError('Illegal invocation');
+        }
+      }
       return getterImpl.call(this);
     }
   };

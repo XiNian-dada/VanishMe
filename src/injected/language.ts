@@ -152,4 +152,75 @@ export function installLanguageSpoof(config: LanguageConfig, targetWindow: any =
       return originalLocaleCompare.call(this, that, effectiveLocales, options);
     }, originalLocaleCompare, 'localeCompare');
   }
+
+  // 9. Spoof Intl.RelativeTimeFormat (防 "1天前" / "昨天" 语言泄露)
+  if (targetWindow.Intl && targetWindow.Intl.RelativeTimeFormat) {
+    const OriginalRelativeTimeFormat = targetWindow.Intl.RelativeTimeFormat;
+    try {
+      const RelativeTimeFormatWrapper: any = function RelativeTimeFormat(locales?: string | string[], options?: any) {
+        const effectiveLocales = locales !== undefined ? locales : config.languages;
+        const rtf = new OriginalRelativeTimeFormat(effectiveLocales, options);
+        const originalResolvedOptions = rtf.resolvedOptions;
+        rtf.resolvedOptions = makeNativeFunction(function resolvedOptions(this: any) {
+          const res = originalResolvedOptions.call(this);
+          if (locales === undefined) {
+            res.locale = config.language;
+          }
+          return res;
+        }, originalResolvedOptions, 'resolvedOptions');
+        return rtf;
+      };
+      RelativeTimeFormatWrapper.prototype = OriginalRelativeTimeFormat.prototype;
+      RelativeTimeFormatWrapper.supportedLocalesOf = OriginalRelativeTimeFormat.supportedLocalesOf;
+      Object.setPrototypeOf(RelativeTimeFormatWrapper, OriginalRelativeTimeFormat);
+      targetWindow.Intl.RelativeTimeFormat = makeNativeFunction(RelativeTimeFormatWrapper, OriginalRelativeTimeFormat, 'RelativeTimeFormat');
+    } catch (e) {}
+  }
+
+  // 10. Spoof Intl.ListFormat (防 "和" / "、" 中文排版列表泄露)
+  if (targetWindow.Intl && targetWindow.Intl.ListFormat) {
+    const OriginalListFormat = targetWindow.Intl.ListFormat;
+    try {
+      const ListFormatWrapper: any = function ListFormat(locales?: string | string[], options?: any) {
+        const effectiveLocales = locales !== undefined ? locales : config.languages;
+        const lf = new OriginalListFormat(effectiveLocales, options);
+        const originalResolvedOptions = lf.resolvedOptions;
+        lf.resolvedOptions = makeNativeFunction(function resolvedOptions(this: any) {
+          const res = originalResolvedOptions.call(this);
+          if (locales === undefined) {
+            res.locale = config.language;
+          }
+          return res;
+        }, originalResolvedOptions, 'resolvedOptions');
+        return lf;
+      };
+      ListFormatWrapper.prototype = OriginalListFormat.prototype;
+      ListFormatWrapper.supportedLocalesOf = OriginalListFormat.supportedLocalesOf;
+      Object.setPrototypeOf(ListFormatWrapper, OriginalListFormat);
+      targetWindow.Intl.ListFormat = makeNativeFunction(ListFormatWrapper, OriginalListFormat, 'ListFormat');
+    } catch (e) {}
+  }
+
+  // 11. Spoof Date.prototype.toLocaleString / toLocaleDateString / toLocaleTimeString
+  if (targetWindow.Date && targetWindow.Date.prototype) {
+    const dProto = targetWindow.Date.prototype;
+    const origToLocaleString = dProto.toLocaleString;
+    const origToLocaleDateString = dProto.toLocaleDateString;
+    const origToLocaleTimeString = dProto.toLocaleTimeString;
+
+    dProto.toLocaleString = makeNativeFunction(function toLocaleString(this: any, locales?: any, options?: any) {
+      const effectiveLocales = locales !== undefined ? locales : config.language;
+      return origToLocaleString.call(this, effectiveLocales, options);
+    }, origToLocaleString, 'toLocaleString');
+
+    dProto.toLocaleDateString = makeNativeFunction(function toLocaleDateString(this: any, locales?: any, options?: any) {
+      const effectiveLocales = locales !== undefined ? locales : config.language;
+      return origToLocaleDateString.call(this, effectiveLocales, options);
+    }, origToLocaleDateString, 'toLocaleDateString');
+
+    dProto.toLocaleTimeString = makeNativeFunction(function toLocaleTimeString(this: any, locales?: any, options?: any) {
+      const effectiveLocales = locales !== undefined ? locales : config.language;
+      return origToLocaleTimeString.call(this, effectiveLocales, options);
+    }, origToLocaleTimeString, 'toLocaleTimeString');
+  }
 }

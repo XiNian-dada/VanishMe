@@ -28,6 +28,14 @@ export default defineConfig({
           src: 'src/leak-test/leak-test.html',
           dest: 'leak-test',
           rename: 'leak-test.html'
+        },
+        {
+          src: 'test-geolocation.html',
+          dest: '.'
+        },
+        {
+          src: 'test-language.html',
+          dest: '.'
         }
       ]
     })

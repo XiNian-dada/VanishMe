@@ -1,12 +1,13 @@
 {
   "name": "vanishme",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "description": "VanishMe - Browser privacy leak protection and environment consistency management tool",
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "dev": "vite build --watch --mode development",
     "build": "tsc && vite build",
+    "package": "npm run build && (cd dist && zip -r ../VanishMe-v1.2.0.zip .)",
     "preview": "vite preview"
   },
   "keywords": [

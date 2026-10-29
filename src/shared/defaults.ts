@@ -132,6 +132,12 @@ export const DEFAULT_CONFIG: PrivacyConfig = {
     '*.browserleaks.com',
     'ipleak.net',
     '*.ipleak.net',
+    'iplark.com',
+    '*.iplark.com',
+    'fuck-claude.app',
+    '*.fuck-claude.app',
+    'fuck-claude.pages.dev',
+    '*.fuck-claude.pages.dev',
     'deviceinfo.me',
     '*.deviceinfo.me',
     'whoer.net',
@@ -204,21 +210,24 @@ export const DEFAULT_CONFIG: PrivacyConfig = {
     offsetMinutes: -480
   },
   canvas: {
-    enabled: false, // 默认关闭，需要用户手动启用
+    enabled: true, // 默认开启字体屏蔽，保护用户隐私
     spoofFonts: true,
     targetFonts: [
       // Windows 简体中文字体
       'Microsoft YaHei', 'Microsoft YaHei UI', 'SimSun', 'NSimSun', 'SimHei',
       'KaiTi', 'FangSong', 'DengXian',
-      // macOS 简体中文字体
+      // macOS 简体中文字体 (覆盖系统自带及进阶中文字库)
       'PingFang SC', 'Hiragino Sans GB', 'STHeiti', 'STSong', 'Songti SC',
+      'Kaiti SC', 'Yuanti SC', 'Baoli SC', 'Xingkai SC', 'Wawati SC',
+      'Yuppy SC', 'Weibei SC', 'LingWai SC', 'Hanzipen SC',
       // 开源简体中文字体
       'Source Han Sans CN', 'Source Han Sans SC',
       'Noto Sans CJK SC', 'Noto Serif CJK SC',
       'WenQuanYi Micro Hei', 'WenQuanYi Zen Hei',
-      // 繁体中文字体
+      // 繁体中文字体与 macOS 繁体字库
       'Microsoft JhengHei', 'PMingLiU', 'MingLiU', 'DFKai-SB',
-      'PingFang TC', 'PingFang HK', 'Source Han Sans TW', 'Noto Sans CJK TC'
+      'PingFang TC', 'PingFang HK', 'Source Han Sans TW', 'Noto Sans CJK TC',
+      'BiauKai', 'LiHei Pro', 'LiSong Pro', 'Apple LiGothic', 'Apple LiSung'
     ]
   },
   profile: {

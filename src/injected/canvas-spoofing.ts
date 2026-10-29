@@ -99,6 +99,9 @@ export function setupCanvasSpoofing(config: CanvasConfig) {
   const originalMeasureText = CanvasRenderingContext2D.prototype.measureText;
   const originalGetContext = HTMLCanvasElement.prototype.getContext;
   const targetFontKeys = new Set(config.targetFonts.map(fontFamilyKey));
+  try {
+    (window as any).__vm_masked_fonts = targetFontKeys;
+  } catch {}
 
   function measureTextWithFontFallback(ctx: CanvasRenderingContext2D, text: string): TextMetrics {
     if (ctx.font && targetFontKeys.size > 0) {

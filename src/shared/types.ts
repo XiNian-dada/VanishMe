@@ -94,4 +94,5 @@ export interface InjectedConfig {
   language: LanguageConfig;
   timezone: TimezoneConfig;
   canvas: CanvasConfig;
+  webrtc: WebRTCConfig;
 }
