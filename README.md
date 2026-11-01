@@ -7,7 +7,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Chrome / Edge](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge-blue.svg)](https://www.google.com/chrome/)
-[![Version: 1.2.1](https://img.shields.io/badge/Version-1.2.1-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
+[![Version: 1.2.2](https://img.shields.io/badge/Version-1.2.2-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
 
 [中文说明](#-为什么需要-vanishme) | [English Documentation](#english)
 
@@ -33,8 +33,9 @@
 
 ---
 
-## 🌟 核心优势（v1.2.1 最新特性）
+## 🌟 核心优势（v1.2.2 最新特性）
 
+- 🛠️ **修复 OpenAI / MFA 认证页面崩溃白屏 (解决 `Intl.NumberFormat.supportedLocalesOf is not a function`)**：全面强化函数伪装底层架构，完整保留并继承所有原生构造函数（`Intl.NumberFormat`、`Intl.DateTimeFormat`、`Intl.Collator`、`Intl.PluralRules`、`Intl.RelativeTimeFormat`、`Intl.ListFormat` 及 `RTCPeerConnection`）的原型链与全量静态方法（如 `supportedLocalesOf`、`generateCertificate`），彻底杜绝前端现代化应用（React/OpenAI Runtime）因静态方法丢失而黑屏崩溃。
 - 🛡️ **彻底解决跨域 Iframe 与 Cloudflare Turnstile / OpenAI 登录兼容性 (Issue #4)**：深度重构 iframe 隔离与同源策略边界安全判定，彻底根除跨域读取 `contentWindow` 时抛出的 `SecurityError`。完美兼容 Cloudflare Turnstile 人机验证、OpenAI 桌面客户端浏览器回调、Auth0 及第三方支付沙盒。
 - ⚡ **WeakSet 零污染防护**：移除对 `Window` 对象的自定义属性挂载（`__vm_injected`），改用原生 `WeakSet` 进行窗口状态管理，彻底杜绝跨域属性访问异常与前端指纹探针嗅探。
 - 🔬 **内置超严苛隐私与指纹排查中心**：仿照 iplark、browserscan、iprisk、fuck-claude 工业级规范。提供本地 0 依赖超严苛体检中心，一键深度排查时区、语言、全套 7 种 Intl API、45+ 款中文字体、语音模型、WebRTC STUN 穿透候选与物理 IP。
@@ -77,7 +78,7 @@
 
 ### 方式一：直接安装（推荐小白）
 
-1. 前往 [Releases 发布页](https://github.com/XiNian-dada/VanishMe/releases) 下载最新版本的 `VanishMe-v1.2.1.zip`。
+1. 前往 [Releases 发布页](https://github.com/XiNian-dada/VanishMe/releases) 下载最新版本的 `VanishMe-v1.2.2.zip`。
 2. 解压下载的压缩包，得到 `dist` 文件夹。
 3. 打开 Chrome 或 Edge 浏览器，在地址栏输入对应地址：
    - **Edge 浏览器**：`edge://extensions/`
@@ -152,7 +153,7 @@ npm run build
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Chrome / Edge](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge-blue.svg)](https://www.google.com/chrome/)
-[![Version: 1.2.1](https://img.shields.io/badge/Version-1.2.1-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
+[![Version: 1.2.2](https://img.shields.io/badge/Version-1.2.2-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
 
 </div>
 
@@ -172,8 +173,9 @@ Modern platforms do not merely inspect your IP address — they deeply inspect y
 
 👉 **VanishMe is designed to solve all of these issues seamlessly.**
 
-### 🌟 Core Highlights (v1.2.1)
+### 🌟 Core Highlights (v1.2.2)
 
+- 🛠️ **OpenAI / MFA Login Crash Fix (`Intl.NumberFormat.supportedLocalesOf`)**: Preserves all static methods and properties across the entire `Intl` constructor family (`NumberFormat`, `DateTimeFormat`, `Collator`, `PluralRules`, `RelativeTimeFormat`, `ListFormat`) and `RTCPeerConnection` (`generateCertificate`, `defaultIceServers`), resolving blank screens in React/OpenAI auth runtimes.
 - 🛡️ **Cross-Origin Iframe & Cloudflare Turnstile / OpenAI Login Fix (Issue #4)**: Solves `SecurityError` during cross-origin `contentWindow` access. Seamlessly supports Cloudflare Turnstile verification, OpenAI client browser login callback, Auth0, and payment iframes.
 - ⚡ **WeakSet Zero-Pollution Architecture**: Eliminates custom property attachment (`__vm_injected`) on `Window` objects, ensuring zero cross-origin access exceptions and zero detection footprint.
 - 🔬 **Built-in Ultra-Strict Fingerprint & Leak Audit Center**: Modeled after iplark, browserscan, iprisk, and fuck-claude industrial standards. Perform local, zero-dependency diagnostics across timezones, offsets, 7 Intl APIs, 45+ Chinese fonts, TTS voices, and WebRTC STUN leaks.

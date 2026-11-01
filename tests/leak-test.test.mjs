@@ -561,3 +561,84 @@ test('Cross-origin iframe contentWindow access must not throw SecurityError (Clo
     assert.ok(win);
   });
 });
+
+test('Intl and RTCPeerConnection constructors must preserve static methods (e.g. supportedLocalesOf, generateCertificate)', () => {
+  const { load, context } = createModuleLoader();
+  const mockWin = {
+    Intl: {
+      DateTimeFormat: Intl.DateTimeFormat,
+      NumberFormat: Intl.NumberFormat,
+      Collator: Intl.Collator,
+      PluralRules: Intl.PluralRules,
+      RelativeTimeFormat: Intl.RelativeTimeFormat,
+      ListFormat: Intl.ListFormat
+    },
+    navigator: {
+      language: 'en-US',
+      languages: ['en-US', 'en']
+    },
+    Navigator: class {},
+    Date: class MockDate {
+      getTime() { return Date.now(); }
+      getTimezoneOffset() { return 0; }
+    },
+    RTCPeerConnection: class MockPC {
+      static defaultIceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+      static generateCertificate() { return Promise.resolve({}); }
+      addEventListener() {}
+      removeEventListener() {}
+      createOffer() { return Promise.resolve({ type: 'offer', sdp: '' }); }
+      createAnswer() { return Promise.resolve({ type: 'answer', sdp: '' }); }
+    }
+  };
+
+  const { installLanguageSpoof } = load('../src/injected/language');
+  const { installTimezoneSpoof } = load('../src/injected/timezone');
+  const { installWebRTCSpoof } = load('../src/injected/webrtc');
+
+  installLanguageSpoof({
+    enabled: true,
+    language: 'en-US',
+    languages: ['en-US', 'en'],
+    acceptLanguage: 'en-US,en;q=0.9'
+  }, mockWin);
+
+  installTimezoneSpoof({
+    enabled: true,
+    timezone: 'America/Los_Angeles',
+    offsetMinutes: 420
+  }, mockWin, 'en-US');
+
+  installWebRTCSpoof({
+    enabled: true,
+    policy: 'disable_non_proxied_udp'
+  }, mockWin);
+
+  // 1. Intl.NumberFormat.supportedLocalesOf must be a function and callable (OpenAI Auth fix)
+  assert.equal(typeof mockWin.Intl.NumberFormat.supportedLocalesOf, 'function');
+  const nfLocales = mockWin.Intl.NumberFormat.supportedLocalesOf(['en-US', 'zh-CN']);
+  assert.ok(Array.isArray(nfLocales));
+  assert.ok(nfLocales.includes('en-US'));
+
+  // 2. Intl.DateTimeFormat.supportedLocalesOf
+  assert.equal(typeof mockWin.Intl.DateTimeFormat.supportedLocalesOf, 'function');
+  const dtfLocales = mockWin.Intl.DateTimeFormat.supportedLocalesOf(['en-US']);
+  assert.ok(Array.isArray(dtfLocales));
+  assert.ok(dtfLocales.includes('en-US'));
+
+  // 3. Intl.Collator.supportedLocalesOf
+  assert.equal(typeof mockWin.Intl.Collator.supportedLocalesOf, 'function');
+
+  // 4. Intl.PluralRules.supportedLocalesOf
+  assert.equal(typeof mockWin.Intl.PluralRules.supportedLocalesOf, 'function');
+
+  // 5. Intl.RelativeTimeFormat.supportedLocalesOf
+  assert.equal(typeof mockWin.Intl.RelativeTimeFormat.supportedLocalesOf, 'function');
+
+  // 6. Intl.ListFormat.supportedLocalesOf
+  assert.equal(typeof mockWin.Intl.ListFormat.supportedLocalesOf, 'function');
+
+  // 7. RTCPeerConnection static methods
+  assert.equal(typeof mockWin.RTCPeerConnection.generateCertificate, 'function');
+  assert.ok(Array.isArray(mockWin.RTCPeerConnection.defaultIceServers));
+});

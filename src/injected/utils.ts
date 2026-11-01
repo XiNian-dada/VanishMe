@@ -89,6 +89,36 @@ export function makeNativeFunction<T extends Function = Function>(func: T, origi
     if (func.prototype) {
       targetFunc.prototype = func.prototype;
     }
+
+    // Preserve prototype chain of constructors
+    if (originalFunc) {
+      try {
+        Object.setPrototypeOf(targetFunc, Object.getPrototypeOf(originalFunc));
+      } catch {}
+    } else if (func) {
+      try {
+        Object.setPrototypeOf(targetFunc, Object.getPrototypeOf(func));
+      } catch {}
+    }
+
+    // Preserve all static properties & methods (e.g. supportedLocalesOf, generateCertificate, etc.)
+    const copyStaticProps = (source: any) => {
+      if (!source) return;
+      try {
+        const descriptors = Object.getOwnPropertyDescriptors(source);
+        for (const [prop, desc] of Object.entries(descriptors)) {
+          if (['length', 'name', 'prototype', 'arguments', 'caller'].includes(prop)) {
+            continue;
+          }
+          try {
+            Object.defineProperty(targetFunc, prop, desc);
+          } catch {}
+        }
+      } catch {}
+    };
+
+    copyStaticProps(originalFunc);
+    copyStaticProps(func);
   } else {
     // Use concise method syntax so the function has NO .prototype and CANNOT be constructed with new
     const methodHolder = {
@@ -115,7 +145,50 @@ export function makeNativeFunction<T extends Function = Function>(func: T, origi
       if (prop === 'length') {
         return length;
       }
+      if (Reflect.has(target, prop)) {
+        return Reflect.get(target, prop, receiver);
+      }
+      if (func && Reflect.has(func, prop)) {
+        return Reflect.get(func, prop, receiver);
+      }
+      if (originalFunc && Reflect.has(originalFunc, prop)) {
+        return Reflect.get(originalFunc, prop, receiver);
+      }
       return Reflect.get(target, prop, receiver);
+    },
+    has(target: any, prop: string | symbol) {
+      return (
+        Reflect.has(target, prop) ||
+        Boolean(func && Reflect.has(func, prop)) ||
+        Boolean(originalFunc && Reflect.has(originalFunc, prop))
+      );
+    },
+    ownKeys(target: any) {
+      const keys = new Set(Reflect.ownKeys(target));
+      if (func) {
+        for (const k of Reflect.ownKeys(func)) {
+          if (k !== 'arguments' && k !== 'caller') keys.add(k);
+        }
+      }
+      if (originalFunc) {
+        for (const k of Reflect.ownKeys(originalFunc)) {
+          if (k !== 'arguments' && k !== 'caller') keys.add(k);
+        }
+      }
+      return Array.from(keys);
+    },
+    getOwnPropertyDescriptor(target: any, prop: string | symbol) {
+      const targetDesc = Reflect.getOwnPropertyDescriptor(target, prop);
+      if (targetDesc) return targetDesc;
+      if (func) {
+        const funcDesc = Reflect.getOwnPropertyDescriptor(func, prop);
+        if (funcDesc) return funcDesc;
+      }
+      if (originalFunc) {
+        const origDesc = Reflect.getOwnPropertyDescriptor(originalFunc, prop);
+        if (origDesc) return origDesc;
+      }
+      return undefined;
     }
   };
 
