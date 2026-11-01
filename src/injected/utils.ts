@@ -64,6 +64,8 @@ export function safeDefineProperty(obj: any, prop: string, descriptor: PropertyD
 
 function isConstructor(fn: any): boolean {
   if (!fn || typeof fn !== 'function') return false;
+  // Non-constructible methods and getters never have .prototype in WebIDL/ES6
+  if (!('prototype' in fn)) return false;
   try {
     Reflect.construct(String, [], fn);
     return true;
@@ -76,7 +78,7 @@ function isConstructor(fn: any): boolean {
 export function makeNativeFunction<T extends Function = Function>(func: T, originalFunc?: Function, customName?: string): T {
   const name = customName !== undefined ? customName : (originalFunc ? originalFunc.name : func.name);
   const length = originalFunc ? originalFunc.length : func.length;
-  const constructible = isConstructor(originalFunc || func);
+  const constructible = originalFunc ? isConstructor(originalFunc) : isConstructor(func);
 
   let targetFunc: any;
   if (constructible) {
@@ -127,6 +129,11 @@ export function makeNativeFunction<T extends Function = Function>(func: T, origi
       }
     };
     targetFunc = methodHolder[name];
+    if (originalFunc) {
+      try {
+        Object.setPrototypeOf(targetFunc, Object.getPrototypeOf(originalFunc));
+      } catch {}
+    }
   }
 
   try {
@@ -145,50 +152,7 @@ export function makeNativeFunction<T extends Function = Function>(func: T, origi
       if (prop === 'length') {
         return length;
       }
-      if (Reflect.has(target, prop)) {
-        return Reflect.get(target, prop, receiver);
-      }
-      if (func && Reflect.has(func, prop)) {
-        return Reflect.get(func, prop, receiver);
-      }
-      if (originalFunc && Reflect.has(originalFunc, prop)) {
-        return Reflect.get(originalFunc, prop, receiver);
-      }
       return Reflect.get(target, prop, receiver);
-    },
-    has(target: any, prop: string | symbol) {
-      return (
-        Reflect.has(target, prop) ||
-        Boolean(func && Reflect.has(func, prop)) ||
-        Boolean(originalFunc && Reflect.has(originalFunc, prop))
-      );
-    },
-    ownKeys(target: any) {
-      const keys = new Set(Reflect.ownKeys(target));
-      if (func) {
-        for (const k of Reflect.ownKeys(func)) {
-          if (k !== 'arguments' && k !== 'caller') keys.add(k);
-        }
-      }
-      if (originalFunc) {
-        for (const k of Reflect.ownKeys(originalFunc)) {
-          if (k !== 'arguments' && k !== 'caller') keys.add(k);
-        }
-      }
-      return Array.from(keys);
-    },
-    getOwnPropertyDescriptor(target: any, prop: string | symbol) {
-      const targetDesc = Reflect.getOwnPropertyDescriptor(target, prop);
-      if (targetDesc) return targetDesc;
-      if (func) {
-        const funcDesc = Reflect.getOwnPropertyDescriptor(func, prop);
-        if (funcDesc) return funcDesc;
-      }
-      if (originalFunc) {
-        const origDesc = Reflect.getOwnPropertyDescriptor(originalFunc, prop);
-        if (origDesc) return origDesc;
-      }
-      return undefined;
     }
   };
 

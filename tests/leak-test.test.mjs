@@ -642,3 +642,80 @@ test('Intl and RTCPeerConnection constructors must preserve static methods (e.g.
   assert.equal(typeof mockWin.RTCPeerConnection.generateCertificate, 'function');
   assert.ok(Array.isArray(mockWin.RTCPeerConnection.defaultIceServers));
 });
+
+test('Native method stealth: getCurrentPosition, getTimezoneOffset, and Date.toString have no .prototype and are non-constructors', () => {
+  const { load, context } = createModuleLoader();
+  const { installAntiDetection } = load('../src/injected/anti-detection');
+  const { installTimezoneSpoof } = load('../src/injected/timezone');
+  const { installGeolocationSpoof } = load('../src/injected/geolocation');
+
+  installAntiDetection();
+
+  // Create a mock Geolocation prototype where native method has no prototype
+  const mockGeoMethod = { ['getCurrentPosition']() {} }.getCurrentPosition;
+  const mockWatchMethod = { ['watchPosition']() {} }.watchPosition;
+  const mockClearWatchMethod = { ['clearWatch']() {} }.clearWatch;
+
+  class MockGeolocation {}
+  MockGeolocation.prototype.getCurrentPosition = mockGeoMethod;
+  MockGeolocation.prototype.watchPosition = mockWatchMethod;
+  MockGeolocation.prototype.clearWatch = mockClearWatchMethod;
+
+  const mockDateToString = { ['toString']() {} }.toString;
+  const mockDateOffset = { ['getTimezoneOffset']() {} }.getTimezoneOffset;
+
+  class MockDate {
+    getTime() { return 1000000; }
+  }
+  MockDate.prototype.toString = mockDateToString;
+  MockDate.prototype.getTimezoneOffset = mockDateOffset;
+
+  const mockWin = {
+    navigator: {
+      geolocation: new MockGeolocation()
+    },
+    Geolocation: MockGeolocation,
+    Date: MockDate,
+    Intl: { DateTimeFormat: class {} }
+  };
+
+  installGeolocationSpoof({
+    enabled: true,
+    latitude: 37.7749,
+    longitude: -122.4194,
+    accuracy: 50,
+    randomRadiusMeters: 0,
+    spoofPermission: true,
+    history: []
+  }, mockWin);
+
+  installTimezoneSpoof({
+    enabled: true,
+    timezone: 'America/Los_Angeles',
+    offsetMinutes: 420
+  }, mockWin, 'en-US');
+
+  const fnList = [
+    { fn: mockWin.navigator.geolocation.getCurrentPosition, name: 'getCurrentPosition' },
+    { fn: mockWin.Date.prototype.getTimezoneOffset, name: 'getTimezoneOffset' },
+    { fn: mockWin.Date.prototype.toString, name: 'toString' }
+  ];
+
+  for (const { fn, name } of fnList) {
+    // 1. Must output [native code]
+    assert.equal(fn.toString(), `function ${name}() { [native code] }`);
+    assert.equal(context.Function.prototype.toString.call(fn), `function ${name}() { [native code] }`);
+
+    // 2. Must NOT have .prototype property (noProto = true)
+    assert.equal('prototype' in fn, false, `${name} must have no .prototype`);
+
+    // 3. Must NOT be constructible with new (notConstructor = true)
+    assert.throws(() => {
+      new fn();
+    }, TypeError, `${name} must throw TypeError on new`);
+
+    // 4. Must inherit Function.prototype.toString
+    assert.equal(fn.toString === context.Function.prototype.toString, true);
+    assert.equal(Object.prototype.hasOwnProperty.call(fn, 'toString'), false);
+  }
+});
