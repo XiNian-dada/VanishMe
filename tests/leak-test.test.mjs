@@ -437,3 +437,127 @@ test('Intl deep multi-dimension scan catches Chinese format indicators', () => {
   assert.equal(intlCheck.status, 'fail');
   assert.ok(audit.result.totalRiskPoints > 0, 'Risk points must be added for Chinese Intl leakage');
 });
+
+test('WebRTC createOffer and createAnswer support both Promise and legacy callback styles', async () => {
+  class MockRTCPeerConnection {
+    async createOffer(...args) {
+      const desc = { type: 'offer', sdp: 'v=0\na=candidate:1 1 udp 1 10.0.0.1 1234 typ host\na=candidate:2 1 udp 2 38.34.12.42 1234 typ srflx raddr 38.34.12.42\n' };
+      if (typeof args[0] === 'function') {
+        args[0](desc);
+        return;
+      }
+      return desc;
+    }
+    async createAnswer(...args) {
+      const desc = { type: 'answer', sdp: 'v=0\na=candidate:1 1 udp 1 192.168.1.1 1234 typ host\na=candidate:2 1 udp 2 38.34.12.42 1234 typ srflx raddr 38.34.12.42\n' };
+      if (typeof args[0] === 'function') {
+        args[0](desc);
+        return;
+      }
+      return desc;
+    }
+    addEventListener() {}
+    removeEventListener() {}
+  }
+
+  const { load } = createModuleLoader();
+  const { installAntiDetection } = load('../src/injected/anti-detection');
+  const { installWebRTCSpoof } = load('../src/injected/webrtc');
+
+  installAntiDetection();
+  const mockWin = { RTCPeerConnection: MockRTCPeerConnection };
+  installWebRTCSpoof({ enabled: true, policy: 'disable_non_proxied_udp' }, mockWin);
+
+  const pc = new mockWin.RTCPeerConnection();
+
+  // 1. Promise style
+  const offerPromiseResult = await pc.createOffer();
+  assert.equal(offerPromiseResult.sdp.includes('10.0.0.1'), false, 'Promise offer must sanitize private IP');
+  assert.equal(offerPromiseResult.sdp.includes('38.34.12.42'), true, 'Promise offer must preserve public proxy IP');
+
+  // 2. Legacy callback style
+  let callbackOfferResult = null;
+  await new Promise((resolve) => {
+    pc.createOffer((offer) => {
+      callbackOfferResult = offer;
+      resolve();
+    });
+  });
+  assert.ok(callbackOfferResult, 'Callback should have been called');
+  assert.equal(callbackOfferResult.sdp.includes('10.0.0.1'), false, 'Callback offer must sanitize private IP');
+  assert.equal(callbackOfferResult.sdp.includes('38.34.12.42'), true, 'Callback offer must preserve public proxy IP');
+
+  // 3. Native function disguise checks
+  assert.equal(Function.prototype.toString.call(pc.createOffer), 'function createOffer() { [native code] }');
+  assert.equal(Function.prototype.toString.call(pc.createAnswer), 'function createAnswer() { [native code] }');
+  assert.equal(Function.prototype.toString.call(pc.addEventListener), 'function addEventListener() { [native code] }');
+  assert.equal(Function.prototype.toString.call(pc.removeEventListener), 'function removeEventListener() { [native code] }');
+});
+
+test('Cross-origin iframe contentWindow access must not throw SecurityError (Cloudflare & OpenAI login fix)', () => {
+  // 模拟跨域 WindowProxy: 访问非白名单属性（如 document 或自定义属性）会抛出 DOMException SecurityError
+  const crossOriginWindow = new Proxy({}, {
+    get(_target, prop) {
+      if (['postMessage', 'blur', 'focus', 'close', 'closed', 'frames', 'length', 'opener', 'parent', 'self', 'top', 'window'].includes(String(prop))) {
+        return () => {};
+      }
+      const err = new Error(`Blocked a frame with origin "https://target.com" from accessing a cross-origin frame.`);
+      err.name = 'SecurityError';
+      throw err;
+    }
+  });
+
+  class MockHTMLIFrameElement {
+    constructor(win = crossOriginWindow) {
+      this._win = win;
+    }
+  }
+  Object.defineProperty(MockHTMLIFrameElement.prototype, 'contentWindow', {
+    get() {
+      return this._win;
+    },
+    configurable: true,
+    enumerable: true
+  });
+
+  const mockWin = {
+    addEventListener: () => {},
+    postMessage: () => {},
+    Intl,
+    Date
+  };
+
+  const { load, context } = createModuleLoader({
+    window: mockWin,
+    navigator: { language: 'en-US', languages: ['en-US', 'en'], userAgent: '' },
+    HTMLIFrameElement: MockHTMLIFrameElement,
+    Document: class MockDocument { createElement() { return new MockHTMLIFrameElement(); } },
+    document: { createElement: () => new MockHTMLIFrameElement() },
+    sessionStorage: { getItem: () => null, setItem: () => {} }
+  });
+
+  const { installAntiDetection } = load('../src/injected/anti-detection');
+  installAntiDetection();
+
+  // 运行 injected 脚本
+  load('../src/injected/injected');
+
+  // 1. 跨域 iframe (如 Cloudflare Turnstile / OpenAI Auth0): 访问 contentWindow 绝对不能抛出 SecurityError
+  const crossFrame = new MockHTMLIFrameElement(crossOriginWindow);
+  assert.doesNotThrow(() => {
+    const win = crossFrame.contentWindow;
+    assert.equal(typeof win.postMessage, 'function');
+  });
+
+  // 2. 同域 iframe: 能够正常访问
+  const sameOriginWindow = {
+    document: {},
+    location: { href: 'https://example.com' },
+    postMessage: () => {}
+  };
+  const sameFrame = new MockHTMLIFrameElement(sameOriginWindow);
+  assert.doesNotThrow(() => {
+    const win = sameFrame.contentWindow;
+    assert.ok(win);
+  });
+});

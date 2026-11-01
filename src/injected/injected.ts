@@ -18,6 +18,11 @@ import { installWebRTCSpoof } from './webrtc';
   let activeConfig: InjectedConfig | null = null;
   let debugMode = false;
 
+  // Track windows where spoofing has already been applied
+  // Using WeakSet avoids polluting window objects with custom properties,
+  // preventing SecurityError on cross-origin iframes (Cloudflare Turnstile, OpenAI login, etc.)
+  const protectedWindows = new WeakSet<any>();
+
   const log = (...args: any[]) => {
     if (debugMode) {
       console.log('[VanishMe]', ...args);
@@ -26,6 +31,9 @@ import { installWebRTCSpoof } from './webrtc';
 
   function applyConfigToWindow(config: InjectedConfig, targetWin: any) {
     if (!config || !config.enabled || !targetWin) return;
+    if (protectedWindows.has(targetWin)) return;
+    protectedWindows.add(targetWin);
+
     try {
       if (config.geolocation && config.geolocation.enabled) {
         installGeolocationSpoof(config.geolocation, targetWin);
@@ -114,23 +122,39 @@ import { installWebRTCSpoof } from './webrtc';
   // Request latest config from content script
   window.postMessage({ type: '__VM_REQ__', nonce }, '*');
 
-  // 4. Hook iframe creation and contentWindow cleanly disguised as native code
+  // 4. Hook iframe creation & contentWindow safely for same-origin dynamic iframes
+  // Critical fix for Issue #4 / Cloudflare Turnstile / OpenAI login:
+  // - Never access custom properties on cross-origin windows
+  // - Catch all SecurityError when probing iframe origin
+  // - Never throw from contentWindow getter
+  function isSameOriginWindow(win: any): boolean {
+    if (!win) return false;
+    try {
+      return Boolean(win.document && win.location && win.location.href);
+    } catch {
+      return false;
+    }
+  }
+
   try {
-    // Intercept HTMLIFrameElement.prototype.contentWindow for synchronous / detached iframe access
     if (typeof HTMLIFrameElement !== 'undefined' && HTMLIFrameElement.prototype) {
       const origContentWindowDesc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow');
       if (origContentWindowDesc && origContentWindowDesc.get) {
         const origGet = origContentWindowDesc.get;
         const wrappedContentWindow = function(this: HTMLIFrameElement) {
           const iWin = origGet.call(this);
-          if (iWin && (iWin as any) !== window && !(iWin as any).__vm_injected) {
-            (iWin as any).__vm_injected = true;
-            if (activeConfig && activeConfig.enabled) {
-              applyConfigToWindow(activeConfig, iWin);
+          try {
+            if (iWin && (iWin as any) !== window && isSameOriginWindow(iWin)) {
+              if (activeConfig && activeConfig.enabled && !protectedWindows.has(iWin)) {
+                applyConfigToWindow(activeConfig, iWin);
+              }
             }
+          } catch {
+            // Silently swallow any cross-origin inspection errors
           }
           return iWin;
         };
+
         Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
           get: createNativeGetter('contentWindow', wrappedContentWindow, origGet) as any,
           configurable: true,
@@ -139,15 +163,16 @@ import { installWebRTCSpoof } from './webrtc';
       }
     }
 
-    const originalCreateElement = document.createElement;
+    const targetDocProto = typeof Document !== 'undefined' ? Document.prototype : document;
+    const originalCreateElement = targetDocProto.createElement || document.createElement;
     const wrappedCreateElement = function createElement(this: Document, tagName: string, options?: any) {
       const element = originalCreateElement.call(this, tagName, options);
       if (typeof tagName === 'string' && tagName.toLowerCase() === 'iframe') {
         element.addEventListener('load', () => {
           try {
             const iframeWin = (element as HTMLIFrameElement).contentWindow;
-            if (iframeWin && (iframeWin as any) !== window) {
-              if (activeConfig && activeConfig.enabled) {
+            if (iframeWin && (iframeWin as any) !== window && isSameOriginWindow(iframeWin)) {
+              if (activeConfig && activeConfig.enabled && !protectedWindows.has(iframeWin)) {
                 applyConfigToWindow(activeConfig, iframeWin);
               }
             }
@@ -157,7 +182,7 @@ import { installWebRTCSpoof } from './webrtc';
       return element;
     };
 
-    document.createElement = makeNativeFunction(wrappedCreateElement, originalCreateElement, 'createElement') as any;
+    targetDocProto.createElement = makeNativeFunction(wrappedCreateElement, originalCreateElement, 'createElement') as any;
   } catch (e) {
     console.warn('VanishMe: Failed to hook iframe creation:', e);
   }

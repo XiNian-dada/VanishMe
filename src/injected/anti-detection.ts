@@ -63,7 +63,7 @@ export function installAntiDetection(): void {
   const cleanStackString = (str: any): string => {
     if (typeof str !== 'string') return str;
     return str
-      .replace(/chrome-extension:\/\/[^\s\n\)]+/g, 'native')
+      .replace(/(?:chrome-extension|extension|ms-browser-extension):\/\/[^\s\n\)]+/g, 'native')
       .replace(/injected\.js/g, 'native')
       .replace(/VanishMe[^\s\n\)]*/g, '');
   };
@@ -71,7 +71,7 @@ export function installAntiDetection(): void {
   // 1. Hook V8 Error.prepareStackTrace
   try {
     const originalPrepare = (Error as any).prepareStackTrace;
-    (Error as any).prepareStackTrace = function(error: Error, structuredStackTrace: any[]) {
+    const cleanPrepare = function(error: Error, structuredStackTrace: any[]) {
       if (typeof originalPrepare === 'function') {
         const raw = originalPrepare(error, structuredStackTrace);
         return cleanStackString(raw);
@@ -87,22 +87,24 @@ export function installAntiDetection(): void {
       }
       return stack.join('\n');
     };
+    (Error as any).prepareStackTrace = cleanPrepare;
   } catch {}
 
   // 2. Hook V8 Error.captureStackTrace
   try {
     const originalCapture = (Error as any).captureStackTrace;
     if (typeof originalCapture === 'function') {
-      (Error as any).captureStackTrace = function(target: any, ctor?: any) {
+      const cleanCapture = function(this: any, target: any, ctor?: any) {
         originalCapture.call(this, target, ctor);
         if (target && target.stack) {
           target.stack = cleanStackString(target.stack);
         }
       };
+      (Error as any).captureStackTrace = makeNativeFunction(cleanCapture, originalCapture, 'captureStackTrace');
     }
   } catch {}
 
-  // 3. Hook Error.prototype.stack (Safari / Firefox / Chromium fallback)
+  // 3. Hook Error.prototype.stack getter cleanly (Safari / Firefox / Chromium fallback)
   try {
     const originalStackDesc = Object.getOwnPropertyDescriptor(Error.prototype, 'stack');
     if (originalStackDesc && originalStackDesc.get) {

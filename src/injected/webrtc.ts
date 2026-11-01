@@ -2,9 +2,10 @@ import type { WebRTCConfig } from '../shared/types';
 import { makeNativeFunction } from './utils';
 
 const privateIpRegex = /^(?:10\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[0-1])\.|198\.18\.|127\.|169\.254\.)/;
+const chineseIpv6Regex = /^(?:240e|2408|2409|2001:da8):/i;
 
 /**
- * 校验某个 Candidate 字符串是否泄露了内网局域网 IP 或非代理的物理直连公网 IP
+ * 校验某个 Candidate 字符串是否泄露了内网局域网 IP 或中国大陆运营商物理 IPv6
  */
 function isLeakingCandidate(candidateStr: string): boolean {
   if (!candidateStr || typeof candidateStr !== 'string') return false;
@@ -15,20 +16,25 @@ function isLeakingCandidate(candidateStr: string): boolean {
   const typIndex = parts.indexOf('typ');
   const typ = typIndex !== -1 ? parts[typIndex + 1] : '';
 
-  // 1. 局域网 host candidate (10.x, 192.168.x, 198.18.x)
-  if (typ === 'host' && privateIpRegex.test(ip)) {
+  // 1. 阻断局域网 host candidate 泄露内网拓扑 (10.x, 192.168.x, 198.18.x 等)
+  if (typ === 'host' && (privateIpRegex.test(ip) || chineseIpv6Regex.test(ip))) {
     return true;
   }
 
-  // 2. srflx 候选通过本地私网网卡穿透 (raddr 为内网 IP)
+  // 2. 阻断 srflx 候选通过本地私网物理网卡穿透 (raddr 为内网 IP)
   if (typ === 'srflx') {
     const raddrIndex = parts.indexOf('raddr');
     if (raddrIndex !== -1) {
       const raddr = parts[raddrIndex + 1];
-      if (privateIpRegex.test(raddr)) {
+      if (privateIpRegex.test(raddr) || chineseIpv6Regex.test(raddr)) {
         return true;
       }
     }
+  }
+
+  // 3. 阻断任何暴露中国大陆运营商物理 IPv6 (240e/2408/2409) 的 candidate
+  if (chineseIpv6Regex.test(ip)) {
+    return true;
   }
 
   return false;
@@ -105,59 +111,90 @@ export function installWebRTCSpoof(config: WebRTCConfig, targetWindow: any = win
 
     // 2. 劫持 addEventListener('icecandidate', ...)
     const originalAddEventListener = pc.addEventListener;
-    pc.addEventListener = function(type: string, listener: any, options?: any) {
-      if (type === 'icecandidate' && typeof listener === 'function') {
-        let wrapped = listenerMap.get(listener);
-        if (!wrapped) {
-          wrapped = function(this: any, event: RTCPeerConnectionIceEvent) {
-            if (event && event.candidate && event.candidate.candidate) {
-              if (isLeakingCandidate(event.candidate.candidate)) {
-                return;
+    if (typeof originalAddEventListener === 'function') {
+      const wrappedAddEventListener = function(this: any, type: string, listener: any, options?: any) {
+        if (type === 'icecandidate' && typeof listener === 'function') {
+          let wrapped = listenerMap.get(listener);
+          if (!wrapped) {
+            wrapped = function(this: any, event: RTCPeerConnectionIceEvent) {
+              if (event && event.candidate && event.candidate.candidate) {
+                if (isLeakingCandidate(event.candidate.candidate)) {
+                  return;
+                }
               }
-            }
-            listener.call(this, event);
-          };
-          listenerMap.set(listener, wrapped);
+              listener.call(this, event);
+            };
+            listenerMap.set(listener, wrapped);
+          }
+          return originalAddEventListener.call(this, type, wrapped as EventListener, options);
         }
-        return originalAddEventListener.call(this, type, wrapped as EventListener, options);
-      }
-      return originalAddEventListener.call(this, type, listener, options);
-    };
+        return originalAddEventListener.call(this, type, listener, options);
+      };
+      pc.addEventListener = makeNativeFunction(wrappedAddEventListener, originalAddEventListener, 'addEventListener');
+    }
 
     // 3. 劫持 removeEventListener
     const originalRemoveEventListener = pc.removeEventListener;
-    pc.removeEventListener = function(type: string, listener: any, options?: any) {
-      if (type === 'icecandidate' && typeof listener === 'function') {
-        const wrapped = listenerMap.get(listener) || listener;
-        return originalRemoveEventListener.call(this, type, wrapped as EventListener, options);
+    if (typeof originalRemoveEventListener === 'function') {
+      const wrappedRemoveEventListener = function(this: any, type: string, listener: any, options?: any) {
+        if (type === 'icecandidate' && typeof listener === 'function') {
+          const wrapped = listenerMap.get(listener) || listener;
+          return originalRemoveEventListener.call(this, type, wrapped as EventListener, options);
+        }
+        return originalRemoveEventListener.call(this, type, listener, options);
+      };
+      pc.removeEventListener = makeNativeFunction(wrappedRemoveEventListener, originalRemoveEventListener, 'removeEventListener');
+    }
+
+    // 4. 劫持 createOffer / createAnswer 净化 SDP (同时兼容 Promise 与 Legacy Callback)
+    const sanitizeDesc = (desc: any) => {
+      if (desc && desc.sdp && typeof desc.sdp === 'string') {
+        const sanitized = sanitizeSdp(desc.sdp);
+        if (typeof RTCSessionDescription !== 'undefined') {
+          return new RTCSessionDescription({ type: desc.type, sdp: sanitized });
+        }
+        return { type: desc.type, sdp: sanitized };
       }
-      return originalRemoveEventListener.call(this, type, listener, options);
+      return desc;
     };
 
-    // 4. 劫持 createOffer / createAnswer 净化 SDP
     const originalCreateOffer = pc.createOffer;
-    pc.createOffer = async function(...args: any[]) {
-      const offer = await originalCreateOffer.apply(this, args);
-      if (offer && offer.sdp) {
-        return new RTCSessionDescription({
-          type: offer.type,
-          sdp: sanitizeSdp(offer.sdp)
-        });
-      }
-      return offer;
-    };
+    if (typeof originalCreateOffer === 'function') {
+      const wrappedCreateOffer = function(this: any, ...args: any[]) {
+        if (typeof args[0] === 'function') {
+          const origSuccess = args[0];
+          args[0] = function(offer: any) {
+            return origSuccess.call(this, sanitizeDesc(offer));
+          };
+          return originalCreateOffer.apply(this, args);
+        }
+        const promise = originalCreateOffer.apply(this, args);
+        if (promise && typeof promise.then === 'function') {
+          return promise.then((offer: any) => sanitizeDesc(offer));
+        }
+        return promise;
+      };
+      pc.createOffer = makeNativeFunction(wrappedCreateOffer, originalCreateOffer, 'createOffer');
+    }
 
     const originalCreateAnswer = pc.createAnswer;
-    pc.createAnswer = async function(...args: any[]) {
-      const answer = await originalCreateAnswer.apply(this, args);
-      if (answer && answer.sdp) {
-        return new RTCSessionDescription({
-          type: answer.type,
-          sdp: sanitizeSdp(answer.sdp)
-        });
-      }
-      return answer;
-    };
+    if (typeof originalCreateAnswer === 'function') {
+      const wrappedCreateAnswer = function(this: any, ...args: any[]) {
+        if (typeof args[0] === 'function') {
+          const origSuccess = args[0];
+          args[0] = function(answer: any) {
+            return origSuccess.call(this, sanitizeDesc(answer));
+          };
+          return originalCreateAnswer.apply(this, args);
+        }
+        const promise = originalCreateAnswer.apply(this, args);
+        if (promise && typeof promise.then === 'function') {
+          return promise.then((answer: any) => sanitizeDesc(answer));
+        }
+        return promise;
+      };
+      pc.createAnswer = makeNativeFunction(wrappedCreateAnswer, originalCreateAnswer, 'createAnswer');
+    }
 
     return pc;
   };
