@@ -56,19 +56,10 @@ export function installTimezoneSpoof(config: TimezoneConfig, targetWindow: any =
         options = { ...options, timeZone: targetTimezone };
       }
 
-      const formatter = new OriginalDateTimeFormat(locales, options);
-      const originalResolvedOptions = formatter.resolvedOptions;
-
-      formatter.resolvedOptions = makeNativeFunction(function resolvedOptions(this: any) {
-        const res = originalResolvedOptions.call(this);
-        res.timeZone = targetTimezone;
-        if (args[0] === undefined && targetLocale) {
-          res.locale = targetLocale;
-        }
-        return res;
-      }, originalResolvedOptions, 'resolvedOptions');
-
-      return formatter;
+      if (new.target) {
+        return Reflect.construct(OriginalDateTimeFormat, [locales, options], new.target);
+      }
+      return new OriginalDateTimeFormat(locales, options);
     };
 
     DateTimeFormatWrapper.prototype = OriginalDateTimeFormat.prototype;

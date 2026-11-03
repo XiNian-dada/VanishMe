@@ -1,5 +1,5 @@
 import type { LanguageConfig } from '../shared/types';
-import { safeDefineProperty, getOriginals, makeNativeFunction, createNativeGetter } from './utils';
+import { safeDefineProperty, getOriginals, makeNativeFunction, createNativeGetter, isSpoofedFunction } from './utils';
 
 export function installLanguageSpoof(config: LanguageConfig, targetWindow: any = window): void {
   if (!config.enabled) return;
@@ -63,16 +63,10 @@ export function installLanguageSpoof(config: LanguageConfig, targetWindow: any =
     try {
       const CollatorWrapper: any = function Collator(locales?: string | string[], options?: Intl.CollatorOptions) {
         const effectiveLocales = locales !== undefined ? locales : config.languages;
-        const collator = new OriginalCollator(effectiveLocales, options);
-        const originalResolvedOptions = collator.resolvedOptions;
-        collator.resolvedOptions = makeNativeFunction(function resolvedOptions(this: any) {
-          const res = originalResolvedOptions.call(this);
-          if (locales === undefined) {
-            res.locale = config.language;
-          }
-          return res;
-        }, originalResolvedOptions, 'resolvedOptions');
-        return collator;
+        if (new.target) {
+          return Reflect.construct(OriginalCollator, [effectiveLocales, options], new.target);
+        }
+        return new OriginalCollator(effectiveLocales, options);
       };
       CollatorWrapper.prototype = OriginalCollator.prototype;
       CollatorWrapper.supportedLocalesOf = OriginalCollator.supportedLocalesOf;
@@ -89,16 +83,10 @@ export function installLanguageSpoof(config: LanguageConfig, targetWindow: any =
     try {
       const NumberFormatWrapper: any = function NumberFormat(locales?: string | string[], options?: Intl.NumberFormatOptions) {
         const effectiveLocales = locales !== undefined ? locales : config.languages;
-        const formatter = new OriginalNumberFormat(effectiveLocales, options);
-        const originalResolvedOptions = formatter.resolvedOptions;
-        formatter.resolvedOptions = makeNativeFunction(function resolvedOptions(this: any) {
-          const res = originalResolvedOptions.call(this);
-          if (locales === undefined) {
-            res.locale = config.language;
-          }
-          return res;
-        }, originalResolvedOptions, 'resolvedOptions');
-        return formatter;
+        if (new.target) {
+          return Reflect.construct(OriginalNumberFormat, [effectiveLocales, options], new.target);
+        }
+        return new OriginalNumberFormat(effectiveLocales, options);
       };
       NumberFormatWrapper.prototype = OriginalNumberFormat.prototype;
       NumberFormatWrapper.supportedLocalesOf = OriginalNumberFormat.supportedLocalesOf;
@@ -115,16 +103,10 @@ export function installLanguageSpoof(config: LanguageConfig, targetWindow: any =
     try {
       const PluralRulesWrapper: any = function PluralRules(locales?: string | string[], options?: any) {
         const effectiveLocales = locales !== undefined ? locales : config.languages;
-        const rules = new OriginalPluralRules(effectiveLocales, options);
-        const originalResolvedOptions = rules.resolvedOptions;
-        rules.resolvedOptions = makeNativeFunction(function resolvedOptions(this: any) {
-          const res = originalResolvedOptions.call(this);
-          if (locales === undefined) {
-            res.locale = config.language;
-          }
-          return res;
-        }, originalResolvedOptions, 'resolvedOptions');
-        return rules;
+        if (new.target) {
+          return Reflect.construct(OriginalPluralRules, [effectiveLocales, options], new.target);
+        }
+        return new OriginalPluralRules(effectiveLocales, options);
       };
       PluralRulesWrapper.prototype = OriginalPluralRules.prototype;
       PluralRulesWrapper.supportedLocalesOf = OriginalPluralRules.supportedLocalesOf;
@@ -153,22 +135,16 @@ export function installLanguageSpoof(config: LanguageConfig, targetWindow: any =
     }, originalLocaleCompare, 'localeCompare');
   }
 
-  // 9. Spoof Intl.RelativeTimeFormat (防 "1天前" / "昨天" 语言泄露)
+  // 9. Spoof Intl.RelativeTimeFormat
   if (targetWindow.Intl && targetWindow.Intl.RelativeTimeFormat) {
     const OriginalRelativeTimeFormat = targetWindow.Intl.RelativeTimeFormat;
     try {
       const RelativeTimeFormatWrapper: any = function RelativeTimeFormat(locales?: string | string[], options?: any) {
         const effectiveLocales = locales !== undefined ? locales : config.languages;
-        const rtf = new OriginalRelativeTimeFormat(effectiveLocales, options);
-        const originalResolvedOptions = rtf.resolvedOptions;
-        rtf.resolvedOptions = makeNativeFunction(function resolvedOptions(this: any) {
-          const res = originalResolvedOptions.call(this);
-          if (locales === undefined) {
-            res.locale = config.language;
-          }
-          return res;
-        }, originalResolvedOptions, 'resolvedOptions');
-        return rtf;
+        if (new.target) {
+          return Reflect.construct(OriginalRelativeTimeFormat, [effectiveLocales, options], new.target);
+        }
+        return new OriginalRelativeTimeFormat(effectiveLocales, options);
       };
       RelativeTimeFormatWrapper.prototype = OriginalRelativeTimeFormat.prototype;
       RelativeTimeFormatWrapper.supportedLocalesOf = OriginalRelativeTimeFormat.supportedLocalesOf;
@@ -177,22 +153,16 @@ export function installLanguageSpoof(config: LanguageConfig, targetWindow: any =
     } catch (e) {}
   }
 
-  // 10. Spoof Intl.ListFormat (防 "和" / "、" 中文排版列表泄露)
+  // 10. Spoof Intl.ListFormat
   if (targetWindow.Intl && targetWindow.Intl.ListFormat) {
     const OriginalListFormat = targetWindow.Intl.ListFormat;
     try {
       const ListFormatWrapper: any = function ListFormat(locales?: string | string[], options?: any) {
         const effectiveLocales = locales !== undefined ? locales : config.languages;
-        const lf = new OriginalListFormat(effectiveLocales, options);
-        const originalResolvedOptions = lf.resolvedOptions;
-        lf.resolvedOptions = makeNativeFunction(function resolvedOptions(this: any) {
-          const res = originalResolvedOptions.call(this);
-          if (locales === undefined) {
-            res.locale = config.language;
-          }
-          return res;
-        }, originalResolvedOptions, 'resolvedOptions');
-        return lf;
+        if (new.target) {
+          return Reflect.construct(OriginalListFormat, [effectiveLocales, options], new.target);
+        }
+        return new OriginalListFormat(effectiveLocales, options);
       };
       ListFormatWrapper.prototype = OriginalListFormat.prototype;
       ListFormatWrapper.supportedLocalesOf = OriginalListFormat.supportedLocalesOf;
@@ -201,26 +171,31 @@ export function installLanguageSpoof(config: LanguageConfig, targetWindow: any =
     } catch (e) {}
   }
 
-  // 11. Spoof Date.prototype.toLocaleString / toLocaleDateString / toLocaleTimeString
+  // 11. Spoof Date.prototype.toLocaleString / toLocaleDateString / toLocaleTimeString (avoid double-wrapping)
   if (targetWindow.Date && targetWindow.Date.prototype) {
     const dProto = targetWindow.Date.prototype;
-    const origToLocaleString = dProto.toLocaleString;
-    const origToLocaleDateString = dProto.toLocaleDateString;
-    const origToLocaleTimeString = dProto.toLocaleTimeString;
+    if (!isSpoofedFunction(dProto.toLocaleString)) {
+      const origToLocaleString = dProto.toLocaleString;
+      dProto.toLocaleString = makeNativeFunction(function toLocaleString(this: any, locales?: any, options?: any) {
+        const effectiveLocales = locales !== undefined ? locales : config.language;
+        return origToLocaleString.call(this, effectiveLocales, options);
+      }, origToLocaleString, 'toLocaleString');
+    }
 
-    dProto.toLocaleString = makeNativeFunction(function toLocaleString(this: any, locales?: any, options?: any) {
-      const effectiveLocales = locales !== undefined ? locales : config.language;
-      return origToLocaleString.call(this, effectiveLocales, options);
-    }, origToLocaleString, 'toLocaleString');
+    if (!isSpoofedFunction(dProto.toLocaleDateString)) {
+      const origToLocaleDateString = dProto.toLocaleDateString;
+      dProto.toLocaleDateString = makeNativeFunction(function toLocaleDateString(this: any, locales?: any, options?: any) {
+        const effectiveLocales = locales !== undefined ? locales : config.language;
+        return origToLocaleDateString.call(this, effectiveLocales, options);
+      }, origToLocaleDateString, 'toLocaleDateString');
+    }
 
-    dProto.toLocaleDateString = makeNativeFunction(function toLocaleDateString(this: any, locales?: any, options?: any) {
-      const effectiveLocales = locales !== undefined ? locales : config.language;
-      return origToLocaleDateString.call(this, effectiveLocales, options);
-    }, origToLocaleDateString, 'toLocaleDateString');
-
-    dProto.toLocaleTimeString = makeNativeFunction(function toLocaleTimeString(this: any, locales?: any, options?: any) {
-      const effectiveLocales = locales !== undefined ? locales : config.language;
-      return origToLocaleTimeString.call(this, effectiveLocales, options);
-    }, origToLocaleTimeString, 'toLocaleTimeString');
+    if (!isSpoofedFunction(dProto.toLocaleTimeString)) {
+      const origToLocaleTimeString = dProto.toLocaleTimeString;
+      dProto.toLocaleTimeString = makeNativeFunction(function toLocaleTimeString(this: any, locales?: any, options?: any) {
+        const effectiveLocales = locales !== undefined ? locales : config.language;
+        return origToLocaleTimeString.call(this, effectiveLocales, options);
+      }, origToLocaleTimeString, 'toLocaleTimeString');
+    }
   }
 }

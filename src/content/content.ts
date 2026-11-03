@@ -55,6 +55,33 @@ function shouldEnableSpoofing(
 
 // Inline the getEffectiveConfigForUrl function to avoid code splitting
 async function getEffectiveConfigForUrl(url: string) {
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname.toLowerCase();
+  } catch {
+    hostname = '';
+  }
+
+  // Never tamper with security challenge / verification frames
+  if (
+    hostname === 'challenges.cloudflare.com' ||
+    hostname.endsWith('.challenges.cloudflare.com') ||
+    hostname.endsWith('.cloudflarechallenge.com') ||
+    hostname.endsWith('.cloudflarecaptcha.com') ||
+    hostname.endsWith('.hcaptcha.com') ||
+    hostname.endsWith('.recaptcha.net') ||
+    hostname.endsWith('.arkoselabs.com') ||
+    hostname.endsWith('.funcaptcha.com')
+  ) {
+    return {
+      globalEnabled: false,
+      geolocation: { enabled: false },
+      timezone: { enabled: false },
+      language: { enabled: false },
+      webrtc: { enabled: false }
+    };
+  }
+
   const { bpg_config } = await chrome.storage.local.get('bpg_config');
   if (!bpg_config) {
     return {
@@ -64,13 +91,6 @@ async function getEffectiveConfigForUrl(url: string) {
       language: { enabled: false },
       webrtc: { enabled: false }
     };
-  }
-
-  let hostname: string;
-  try {
-    hostname = new URL(url).hostname;
-  } catch {
-    hostname = '';
   }
 
   // Check global enable switch

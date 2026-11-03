@@ -50,7 +50,8 @@ export default defineConfig({
         'injected/injected': resolve(__dirname, 'src/injected/injected.ts'),
         'popup/popup': resolve(__dirname, 'src/popup/popup.ts'),
         'options/options': resolve(__dirname, 'src/options/options.ts'),
-        'leak-test/leak-test': resolve(__dirname, 'src/leak-test/leak-test.ts')
+        'leak-test/leak-test': resolve(__dirname, 'src/leak-test/leak-test.ts'),
+        'leak-test/native-snapshot': resolve(__dirname, 'src/leak-test/native-snapshot.ts')
       },
       output: {
         entryFileNames: '[name].js',

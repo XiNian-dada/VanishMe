@@ -9,6 +9,16 @@ const ACCEPT_LANGUAGE_RESOURCE_TYPES = [
   chrome.declarativeNetRequest.ResourceType.XMLHTTPREQUEST
 ];
 
+const SECURITY_CHALLENGE_DOMAINS = [
+  'challenges.cloudflare.com',
+  'cloudflarechallenge.com',
+  'cloudflarecaptcha.com',
+  'hcaptcha.com',
+  'recaptcha.net',
+  'arkoselabs.com',
+  'funcaptcha.com'
+];
+
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -177,7 +187,7 @@ function buildAcceptLanguageRules(config: PrivacyConfig): chrome.declarativeNetR
     }
 
     case 'blacklist': {
-      const excludedPatterns = [...(config.domainList || []), ...disabledSiteRules];
+      const excludedPatterns = [...(config.domainList || []), ...disabledSiteRules, ...SECURITY_CHALLENGE_DOMAINS];
       const excludedDomains = exactDomains(excludedPatterns);
 
       excludedPatterns.forEach(pattern => {
@@ -197,9 +207,16 @@ function buildAcceptLanguageRules(config: PrivacyConfig): chrome.declarativeNetR
 
     case 'global':
     default: {
-      const disabledDomains = exactDomains(disabledSiteRules);
+      const disabledDomains = Array.from(new Set([
+        ...exactDomains(disabledSiteRules),
+        ...SECURITY_CHALLENGE_DOMAINS
+      ]));
 
       disabledSiteRules.forEach(pattern => {
+        addAllowRule(pattern, 2);
+      });
+
+      SECURITY_CHALLENGE_DOMAINS.forEach(pattern => {
         addAllowRule(pattern, 2);
       });
 

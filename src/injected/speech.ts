@@ -53,8 +53,8 @@ export function installSpeechSpoof(targetWindow: any = window): void {
     'getVoices'
   );
 
-  // 如果实例本身有覆盖，也同步保护
-  if (targetWindow.speechSynthesis && targetWindow.speechSynthesis.getVoices !== proto.getVoices) {
+  // 如果实例本身原本就有自有属性覆盖，才同步保护，避免在原型继承的正常实例上凭空产生 own property
+  if (targetWindow.speechSynthesis && Object.prototype.hasOwnProperty.call(targetWindow.speechSynthesis, 'getVoices')) {
     targetWindow.speechSynthesis.getVoices = proto.getVoices;
   }
 }

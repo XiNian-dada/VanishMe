@@ -10,6 +10,23 @@ import { installSpeechSpoof } from './speech';
 import { installWebRTCSpoof } from './webrtc';
 
 (function() {
+  // Never inject or tamper with security challenge/verification frames (Cloudflare Turnstile, hCaptcha, etc.)
+  try {
+    const host = window.location?.hostname || '';
+    if (
+      host === 'challenges.cloudflare.com' ||
+      host.endsWith('.challenges.cloudflare.com') ||
+      host.endsWith('.cloudflarechallenge.com') ||
+      host.endsWith('.cloudflarecaptcha.com') ||
+      host.endsWith('.hcaptcha.com') ||
+      host.endsWith('.recaptcha.net') ||
+      host.endsWith('.arkoselabs.com') ||
+      host.endsWith('.funcaptcha.com')
+    ) {
+      return;
+    }
+  } catch {}
+
   // 1. Install anti-detection and save originals synchronously
   saveOriginalMethods();
   installAntiDetection();

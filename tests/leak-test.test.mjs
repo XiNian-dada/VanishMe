@@ -719,3 +719,109 @@ test('Native method stealth: getCurrentPosition, getTimezoneOffset, and Date.toS
     assert.equal(Object.prototype.hasOwnProperty.call(fn, 'toString'), false);
   }
 });
+
+test('Intl classes and Language getters: 100% prototype purity and Illegal invocation checks', () => {
+  const { load, context } = createModuleLoader();
+  const { installLanguageSpoof } = load('../src/injected/language');
+  const { installTimezoneSpoof } = load('../src/injected/timezone');
+  const { installSpeechSpoof } = load('../src/injected/speech');
+
+  class MockNavigator {}
+  const navProto = MockNavigator.prototype;
+  Object.defineProperty(navProto, 'language', {
+    get() {
+      if (!(this instanceof MockNavigator)) throw new TypeError('Illegal invocation');
+      return 'zh-CN';
+    },
+    configurable: true,
+    enumerable: true
+  });
+  Object.defineProperty(navProto, 'languages', {
+    get() {
+      if (!(this instanceof MockNavigator)) throw new TypeError('Illegal invocation');
+      return Object.freeze(['zh-CN', 'zh']);
+    },
+    configurable: true,
+    enumerable: true
+  });
+
+  const mockNavInstance = new MockNavigator();
+
+  class MockSpeechSynthesis {
+    getVoices() {
+      return [{ name: 'Alex', lang: 'en-US' }];
+    }
+  }
+
+  const mockWin = {
+    Navigator: MockNavigator,
+    navigator: mockNavInstance,
+    Intl: {
+      ...context.Intl,
+      NumberFormat: context.Intl.NumberFormat,
+      DateTimeFormat: context.Intl.DateTimeFormat,
+      Collator: context.Intl.Collator,
+      PluralRules: context.Intl.PluralRules
+    },
+    Date: context.Date,
+    SpeechSynthesis: MockSpeechSynthesis,
+    speechSynthesis: new MockSpeechSynthesis()
+  };
+
+  // Install Timezone and Language
+  installTimezoneSpoof({
+    enabled: true,
+    timezone: 'America/New_York',
+    offsetMinutes: 300
+  }, mockWin, 'en-US');
+
+  installLanguageSpoof({
+    enabled: true,
+    language: 'en-US',
+    languages: ['en-US', 'en'],
+    acceptLanguage: 'en-US,en;q=0.9'
+  }, mockWin);
+
+  installSpeechSpoof(mockWin);
+
+  // 1. Illegal invocation checks on Navigator getters
+  const langDesc = Object.getOwnPropertyDescriptor(navProto, 'language');
+  assert.equal(langDesc.get.call(mockNavInstance), 'en-US', 'Calling on navigator returns spoofed language');
+  assert.throws(() => {
+    langDesc.get.call(navProto);
+  }, TypeError, 'Calling on Navigator.prototype must throw TypeError: Illegal invocation');
+  assert.throws(() => {
+    langDesc.get.call({});
+  }, TypeError, 'Calling on {} must throw TypeError: Illegal invocation');
+
+  const langsDesc = Object.getOwnPropertyDescriptor(navProto, 'languages');
+  assert.deepEqual(Array.from(langsDesc.get.call(mockNavInstance)), ['en-US', 'en']);
+  assert.throws(() => {
+    langsDesc.get.call(navProto);
+  }, TypeError, 'Calling languages on Navigator.prototype must throw TypeError: Illegal invocation');
+
+  // 2. Intl.NumberFormat purity
+  const nf = new mockWin.Intl.NumberFormat();
+  assert.equal(nf.hasOwnProperty('resolvedOptions'), false, 'Intl.NumberFormat instance must NOT have own resolvedOptions');
+  assert.equal(nf.resolvedOptions === mockWin.Intl.NumberFormat.prototype.resolvedOptions, true, 'resolvedOptions must be inherited from prototype');
+  assert.equal(nf.constructor === mockWin.Intl.NumberFormat, true, 'Instance constructor must match Intl.NumberFormat');
+  assert.equal(nf.resolvedOptions().locale, 'en-US', 'Resolved locale must be en-US');
+
+  // ECMA-402 calling without new
+  const nfNoNew = mockWin.Intl.NumberFormat();
+  assert.equal(nfNoNew.constructor === mockWin.Intl.NumberFormat, true);
+  assert.equal(mockWin.Intl.NumberFormat.supportedLocalesOf(['en-US', 'zh-CN']).length > 0, true);
+
+  // 3. Intl.DateTimeFormat purity
+  const dtf = new mockWin.Intl.DateTimeFormat();
+  assert.equal(dtf.hasOwnProperty('resolvedOptions'), false, 'Intl.DateTimeFormat instance must NOT have own resolvedOptions');
+  assert.equal(dtf.resolvedOptions === mockWin.Intl.DateTimeFormat.prototype.resolvedOptions, true, 'DateTimeFormat resolvedOptions must be inherited');
+  assert.equal(dtf.constructor === mockWin.Intl.DateTimeFormat, true, 'Instance constructor must match Intl.DateTimeFormat');
+  assert.equal(dtf.resolvedOptions().timeZone, 'America/New_York', 'Resolved timeZone must be America/New_York');
+
+  const dtfNoNew = mockWin.Intl.DateTimeFormat();
+  assert.equal(dtfNoNew.constructor === mockWin.Intl.DateTimeFormat, true);
+
+  // 4. SpeechSynthesis instance has no own getVoices property
+  assert.equal(Object.prototype.hasOwnProperty.call(mockWin.speechSynthesis, 'getVoices'), false, 'speechSynthesis must not have own getVoices property');
+});

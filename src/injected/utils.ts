@@ -166,6 +166,25 @@ export function makeNativeFunction<T extends Function = Function>(func: T, origi
   spoofedFunctionSet.add(proxied);
   spoofedFunctionSet.add(targetFunc);
 
+  // Link prototype constructor to the spoofed proxy for 100% prototype consistency
+  if (constructible) {
+    if (originalFunc && originalFunc.prototype) {
+      try {
+        originalFunc.prototype.constructor = proxied;
+      } catch {}
+    }
+    if (func && func.prototype) {
+      try {
+        func.prototype.constructor = proxied;
+      } catch {}
+    }
+    if (targetFunc && targetFunc.prototype) {
+      try {
+        targetFunc.prototype.constructor = proxied;
+      } catch {}
+    }
+  }
+
   return proxied as T;
 }
 
@@ -173,7 +192,7 @@ export function makeNativeFunction<T extends Function = Function>(func: T, origi
 // 1. Natural ES6 getter has no .prototype ('prototype' in getter === false)
 // 2. Cannot be called with new (throws TypeError)
 // 3. Own property names: ['length', 'name']
-// 4. Throws TypeError: Illegal invocation when called with incompatible receiver ({}, null, etc.)
+// 4. Throws TypeError: Illegal invocation when called with incompatible receiver ({}, null, Navigator.prototype, etc.)
 // 5. Function.prototype.toString returns 'function get <name>() { [native code] }'
 export function createNativeGetter(
   name: string,
@@ -183,10 +202,13 @@ export function createNativeGetter(
   const cleanName = name.startsWith('get ') ? name.slice(4) : name;
   const holder = {
     get [cleanName](): any {
-      // Illegal invocation defense (CreepJS & DataDome check)
-      if (['language', 'languages', 'userLanguage', 'browserLanguage'].includes(cleanName)) {
+      // Direct WebIDL brand check via original getter if available (catches Navigator.prototype, {}, etc.)
+      if (typeof originalGetter === 'function') {
+        originalGetter.call(this);
+      } else if (['language', 'languages', 'userLanguage', 'browserLanguage', 'contentWindow'].includes(cleanName)) {
         const isNav = Boolean(
           this &&
+          this !== (typeof Navigator !== 'undefined' ? Navigator.prototype : null) &&
           (this.constructor?.name?.includes('Navigator') ||
            (typeof Navigator !== 'undefined' && this instanceof Navigator))
         );

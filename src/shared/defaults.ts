@@ -123,6 +123,8 @@ export const DEFAULT_CONFIG: PrivacyConfig = {
   debugMode: false, // 默认关闭调试日志
   matchMode: 'whitelist', // 默认使用白名单模式
   domainList: [
+    'solvegate.io',
+    '*.solvegate.io',
     // 常见指纹与隐私检测网站（开箱即测）
     'iprisk.top',
     '*.iprisk.top',
