@@ -2,245 +2,171 @@
 
 <img src="images/banner-zh.png" alt="VanishMe Banner" width="100%"/>
 
-# VanishMe · 消失的我 🥷
-### 专业级浏览器指纹伪装与反风控利器，让你的环境天衣无缝
+# VanishMe · 消失的我
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Chrome / Edge](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge-blue.svg)](https://www.google.com/chrome/)
+### 基于 Chrome MV3 的浏览器指纹伪装与环境一致性扩展，专克严苛风控与大模型地区封锁
+
+[![Browser: Chromium MV3](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge%20(MV3)-blue.svg)](https://www.google.com/chrome/)
 [![Version: 1.2.4](https://img.shields.io/badge/Version-1.2.4-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[中文说明](#-为什么需要-vanishme) | [English Documentation](#english)
+[中文说明](#核心概述) | [English Documentation](#overview)
 
 </div>
 
 ---
 
-## 💡 为什么需要 VanishMe？
+## 核心概述
 
-你是否遇到过这样的情况：
-- **明明挂了海外代理**，打开 Claude、ChatGPT 或海外网站，却依然弹出**“当前地区不可用”**或直接触发封号？
-- 登录某些电商、社交平台时，总是频繁跳出**风控验证码**或被标记为异常风险账号？
+现代网站在进行风控画像与地域审查时，早已超越了单纯的 IP 检查，而是通过深度探测浏览器底层软硬件特征建立全方位检测模型：
 
-这是因为现代网站不仅看你的 IP 地址，更会**深度探测你的浏览器底层指纹与软硬件环境**：
-1. **时区露馅**：代理在美西洛杉矶（UTC-8），浏览器时区却暴露了中国标准时间（UTC+8）。
-2. **语言与 Intl 泄露**：系统语言虽然调成了英文，但 JavaScript 底层 API（如 `Intl.DateTimeFormat`、`Intl.RelativeTimeFormat`、`Intl.ListFormat`）仍会悄悄出卖你的真实中文环境。
-3. **本地中文字体嗅探**：宿主机安装的微软雅黑、苹方、宋体等字体被 Canvas 差分度量探针一秒识破。
+1. **时区与经纬度矛盾**：代理节点在美西洛杉矶（UTC-8），但浏览器系统时区依然暴露中国标准时间（UTC+8）。
+2. **国际化与语言底层泄露**：操作系统语言虽设为英文，但 JavaScript `Intl` 全套 API 仍会暴露真实的中文区域格式。
+3. **本地中文字体嗅探**：宿主机安装的微软雅黑、苹方、宋体等字体通过 Canvas 差分度量探针一秒识破。
 4. **系统语音引擎出卖语种**：系统 TTS 注册的中文发音人（如婷婷、Eddy 等）暴露了真实系统语系。
-5. **WebRTC 穿透**：网页通过 WebRTC STUN 协议直接绕过系统代理，穿透出你的内网 IP 或国内物理公网 IPv4/IPv6。
-6. **劣质插件反被识破**：许多指纹插件由于实现简陋、直接覆写原生方法，在 CreepJS / DataDome 的原型描述符、Illegal Invocation 和堆栈检测下一触即溃。
+5. **WebRTC 穿透**：网页通过 STUN 协议直接绕过代理，穿透出局域网内网 IP 或国内物理运营商 IPv4/IPv6。
+6. **劣质插件被识破**：传统反指纹脚本粗暴覆写原生方法，在 CreepJS / DataDome 的原型描述符、Illegal Invocation 和堆栈检测下一触即溃。
 
-👉 **VanishMe 就是为了彻底解决上述痛点而生。**
+**VanishMe** 专为消除上述环境冲突而设计。通过在网络层与 JavaScript 运行时同时进行原子级校准，使浏览器的指纹表现与代理出口环境完全一致。
 
----
-
-## 🌟 核心优势（v1.2.4 最新特性）
-
-- 🛡️ **彻底解决 Cloudflare Challenge 与 Turnstile 人机验证兼容性 (Issue #6)**：
-  - 重构原生 Getter 校验，严格利用底层 C++ brand check 保证在以 `Navigator.prototype` 为 receiver 调用时抛出原生的 `TypeError: Illegal invocation`；
-  - 彻底重构 `Intl` 全系列构造函数（`NumberFormat`、`DateTimeFormat`、`Collator`、`PluralRules`、`RelativeTimeFormat`、`ListFormat`），对齐 ECMA-402 规范，绝不在实例上残留假自有属性（`hasOwnProperty('resolvedOptions') === false`），保持 100% 原型链纯净度与构造器引用一致；
-  - 自动识别并绝对豁免第三方安全验证沙箱（`challenges.cloudflare.com`、`hcaptcha.com` 等），坚决不向验证沙箱内部注入篡改代码，且 DNR 请求头改写规则自动排除验证流量，彻底杜绝防篡改熔断与 `Error: 600010`。
-- 🔬 **根除内置检测页 Manifest V3 CSP 拦截警告 (Issue #5)**：将原生环境快照逻辑独立抽取为外部模块 `native-snapshot.js`，置于 `injected.js` 之前加载，完全符合 Chrome MV3 默认 CSP 规范，零内联脚本报错。
-- 🔬 **彻底消除原生方法 `noProto=false` 破绽 (CreepJS 严格通过)**：修正底层原生函数伪装在处理方法时的 Proxy `has` trap 逻辑，杜绝任何外部函数原型泄漏。`navigator.geolocation.getCurrentPosition`、`Date.prototype.getTimezoneOffset`、`Date.prototype.toString` 严格符合 WebIDL 无 `.prototype` 规范且严禁构造函数调用，100% 达成原生代码纯净度。
-- 🛠️ **修复 OpenAI / MFA 认证页面崩溃白屏 (解决 `Intl.NumberFormat.supportedLocalesOf is not a function`)**：全面强化函数伪装底层架构，完整保留并继承所有原生构造函数（`Intl.NumberFormat`、`Intl.DateTimeFormat`、`Intl.Collator`、`Intl.PluralRules`、`Intl.RelativeTimeFormat`、`Intl.ListFormat` 及 `RTCPeerConnection`）的原型链与全量静态方法（如 `supportedLocalesOf`、`generateCertificate`），彻底杜绝前端现代化应用（React/OpenAI Runtime）因静态方法丢失而黑屏崩溃。
-- 🛡️ **彻底解决跨域 Iframe 与 Cloudflare Turnstile / OpenAI 登录兼容性 (Issue #4)**：深度重构 iframe 隔离与同源策略边界安全判定，彻底根除跨域读取 `contentWindow` 时抛出的 `SecurityError`。完美兼容 Cloudflare Turnstile 人机验证、OpenAI 桌面客户端浏览器回调、Auth0 及第三方支付沙盒。
-- ⚡ **WeakSet 零污染防护**：移除对 `Window` 对象的自定义属性挂载（`__vm_injected`），改用原生 `WeakSet` 进行窗口状态管理，彻底杜绝跨域属性访问异常与前端指纹探针嗅探。
-- 🔬 **内置超严苛隐私与指纹排查中心**：仿照 iplark、browserscan、iprisk、fuck-claude 工业级规范。提供本地 0 依赖超严苛体检中心，一键深度排查时区、语言、全套 7 种 Intl API、45+ 款中文字体、语音模型、WebRTC STUN 穿透候选与物理 IP。
-- 📍 **测试页环境与普通网站 100% 对齐 (Issue #2)**：彻底解决内置测试页触发 geolocation 权限警告的问题。测试页在受保护沙盒接口下运行，直接返回虚拟海外经纬度，无需向浏览器申请底层物理 GPS 权限，0 警告防泄漏。
-- 🌐 **WebRTC STUN 穿透硬核阻断与运营商 IPv6 识别**：JS 层深度拦截 `RTCPeerConnection`，不仅精准阻断内网与 TUN 旁路 IP，更能深度识别防范电信/联通/移动物理 IPv6（`240e`/`2408`/`2409`）候选外泄；`createOffer`/`createAnswer` 完美兼顾 Promise 与 Legacy Callback 工业规范。
-- 🥷 **CreepJS / DataDome 级原生伪装隐蔽度**：
-  - **Illegal Invocation 拦截**：对标原生 V8 规范，Getter 接收非合规 receiver（如 `{}`）时精确抛出 `TypeError: Illegal invocation`；
-  - **Non-constructor 防御**：原生方法和 Getter 严禁通过 `new` 调用（精确抛出 `TypeError`），无 `.prototype` 破绽；
-  - **原型链纯净度**：`Reflect.ownKeys` 绝不残留实例自有键，`fn.toString === Function.prototype.toString`；
-  - **Detached Iframe 对抗**：拦截 `contentWindow` Getter，即便网页强行将 iframe 剥离 DOM（孤儿窗口逃逸），依然继承受控伪装；
-  - **全场景 Error.stack 堆栈净化**：无任何 `chrome-extension://`、`injected.js` 或插件特征字串残留。
-- 🗣️ **系统语音发音人 (SpeechSynthesis) 语种屏蔽**：自动过滤并隐藏宿主机系统注册的中文发音人模型，彻底封堵商业语种探针。
-- 🎨 **45+ 款典型中文字体差分度量与混淆屏蔽**：全面防御基于 Canvas `measureText` 和 `document.fonts.check` 的本地字体嗅探。
-- 🔄 **网络层与 JS 底层“表里如一”**：修改语言和时区时，不仅前端 JS 呈现目标地区格式，发往网站的 HTTP 请求头（Declarative Net Request）也自动同步修改，绝不自相矛盾。
-- ⚡ **开箱即用，一键秒切**：内置美国、日本、新加坡、德国等常用地区预设，点击即可自动配置经纬度、时区和语言环境。
+> [!IMPORTANT]
+> **使用前提与定位声明 (Prerequisites & Scope)**
+> - **环境一致性校准**：VanishMe 的职责是将客户端指纹（时区、地理位置、语言、请求头、字体、语音模型）与你的代理节点对齐。
+> - **非代理服务**：本扩展**不提供代理或翻墙能力**，必须与系统代理或代理扩展（如 Clash、Sing-box、SwitchyOmega 等）配合使用。
 
 ---
 
-## 🚀 3 步极速上手
+## 工作原理
 
-1. **点击扩展图标**，展开快捷面板。
-2. **选择目标地区**（例如点击 🇺🇸 **美国** 或 🇯🇵 **日本**）。
-3. **刷新网页**，全套伪装环境即刻生效！
+VanishMe 采用网络层与运行时双层协同架构，避免了传统单层脚本“表里不一”或被反篡改脚本检测的问题：
+
+```mermaid
+flowchart TD
+    subgraph Browser["Chromium 浏览器 (MV3)"]
+        subgraph NetLayer["网络层 (Declarative Net Request)"]
+            Req["HTTP 出站请求"] --> HeaderMod["请求头同步重写 (Accept-Language 等)"]
+            HeaderMod --> SandboxCheck{"目标是否为人机验证沙箱？\n(challenges.cloudflare.com 等)"}
+            SandboxCheck -- 是 --> DirectPass["免改写直通 (避免熔断)"]
+            SandboxCheck -- 否 --> OutNet["目标网站服务器"]
+        end
+
+        subgraph PageContext["页面运行时 (MAIN World Context)"]
+            PageJS["页面指纹与风控探针"] --> Hooks["无痕 API 包装层"]
+            Hooks --> Int["全套 ECMA-402 Intl 类构造函数"]
+            Hooks --> Font["45+ 款中文字体 Canvas 差分屏蔽"]
+            Hooks --> TTS["SpeechSynthesis 中文发音人屏蔽"]
+            Hooks --> Brand["C++ 级 Illegal Invocation 与原型链防漏"]
+        end
+
+        subgraph WebRTCLayer["网络协议控制 (chrome.privacy & JS Hook)"]
+            RTC["WebRTC IP 策略"] --> UDP["强制 disable_non_proxied_udp"]
+            RTC --> STUN["阻断 TUN 接口与 240e/2408/2409 运营商 IPv6"]
+        end
+    end
+```
 
 ---
 
-## 🎯 规则模式说明（大白话版）
+## 核心特性 (v1.2.4)
 
-并非所有网站都需要伪装，VanishMe 提供了三种灵活省心的模式：
+### 1. 深度人机验证与现代应用兼容
+- **Cloudflare Turnstile / Challenge 完美兼容**：自动识别并绝对豁免第三方安全验证沙箱（`challenges.cloudflare.com`、`hcaptcha.com` 等），验证沙箱内不注入代码且豁免 DNR 请求头改写，彻底根除 `Error: 600010`。
+- **OpenAI / MFA 登录白屏修复**：全量保留继承 `Intl` 构造函数家族的静态方法（如 `supportedLocalesOf`）与 `RTCPeerConnection` 静态属性，杜绝现代前端框架因静态方法丢失而崩溃。
+- **跨域 Iframe 隔离重构**：重构同源策略边界安全判定，根除读取 `contentWindow` 触发的 `SecurityError`，无缝兼容 Auth0 与第三方支付沙箱。
 
-- 🟢 **白名单模式（强烈推荐）**：平时不打扰。只有你添加到列表中的网站（如 Claude、ChatGPT、海外电商）才会开启伪装，国内网站完全保持原样，互不干扰。
-- 🌐 **全局模式**：对所有打开的网页统一开启伪装，适合需要全局隐私隐匿的场景。
-- 🔴 **黑名单模式**：默认对所有网站伪装，但可以排除特定几个不需要伪装的站点。
+### 2. CreepJS / DataDome 级原生隐蔽度
+- **C++ 级 Illegal Invocation 严密防御**：以非合规 receiver（如 `{}`、`null` 或 `Navigator.prototype`）调用 Getter 时，精准抛出 V8 原生 `TypeError: Illegal invocation`。
+- **ECMA-402 规范与纯净原型链**：重构 `NumberFormat`、`DateTimeFormat`、`Collator` 等全系列构造函数，无 `resolvedOptions` 假自有属性残留，保持 100% 构造器引用一致。
+- **原生方法 WebIDL 规范合规**：消除 `noProto` 破绽，原生方法严禁通过 `new` 调用且无 `.prototype` 暴露。
+- **Detached Iframe 对抗与堆栈净化**：拦截 `contentWindow` 防止孤儿窗口逃逸，全场景净化 `Error.stack`，零插件路径字串残留。
 
-> 💡 **快捷技巧**：在任意目标网页上打开插件面板，点击“当前网站：启用”，即可一键将该站点加入白名单，无需手动复制粘贴网址。
+### 3. 多模态物理与网络特征阻断
+- **WebRTC STUN 物理 IP & 运营商 IPv6 阻断**：不仅阻断内网与 TUN 旁路 IP，更能深度拦截电信/联通/移动物理 IPv6（`240e`/`2408`/`2409`）候选外泄。
+- **45+ 款典型中文字体 Canvas 差分屏蔽**：扩充中文字体库，全面防御基于 Canvas `measureText` 和 `document.fonts.check` 的字体探针。
+- **系统语音发音人 (SpeechSynthesis) 屏蔽**：自动过滤宿主机系统注册的中文发音人模型（婷婷、Eddy 等），封堵商业语种探针。
+
+### 4. 双层网络同步与内置排查中心
+- **网络层与 JS 运行时“表里如一”**：DNR 规则重写 `Accept-Language` 与页面环境 100% 对齐，杜绝矛盾。
+- **内置工业级隐私排查中心 (`leak-test.html`)**：对标 iplark、browserscan、iprisk 工业级规范。提供本地 0 依赖超严苛体检中心，一键排查时区、语言、Intl、字体、语音与 IP 穿透。
+- **开箱即用地区预设**：内置美国（洛杉矶）、日本、新加坡、德国等常用地域预设，点击即可自动配置全套参数。
 
 ---
 
-## 📦 安装方法
+## 运行模式
 
-### 方式一：直接安装（推荐小白）
+根据业务需求，VanishMe 提供三种灵活的规则匹配机制：
 
-1. 前往 [Releases 发布页](https://github.com/XiNian-dada/VanishMe/releases) 下载最新版本的 `VanishMe-v1.2.4.zip`。
-2. 解压下载的压缩包，得到 `dist` 文件夹。
-3. 打开 Chrome 或 Edge 浏览器，在地址栏输入对应地址：
-   - **Edge 浏览器**：`edge://extensions/`
+| 模式 | 运作机制 | 推荐场景 |
+|:---|:---|:---|
+| **白名单模式 (推荐)** | 仅对指定域名启用伪装，其余网站完全保持原始环境 | 平常日常使用，仅在访问 Claude、ChatGPT、海外平台时生效，完全不影响国内网站体验 |
+| **全局模式** | 对所有访问的网页统一启用伪装 | 深度隐私需求，或全流程跨境运维环境 |
+| **黑名单模式** | 默认全量伪装，仅排除列表中的指定站点 | 绝大部分网站需要隔离，少数已知可信站点直通 |
+
+> [!TIP]
+> **快捷启用技巧**：在目标网站上点击扩展 Popup 面板中的 **“当前网站：启用”** 开关，即可快速将当前域名加入白名单，无需手动输入 URL。
+
+---
+
+## 安装指南
+
+### 方式一：加载预编译包（推荐）
+
+1. 前往 [Releases 发布页面](https://github.com/XiNian-dada/VanishMe/releases) 下载最新版本的 `VanishMe-v1.2.4.zip`。
+2. 解压下载的压缩包，得到 `dist` 目录。
+3. 打开基于 Chromium 的浏览器，在地址栏输入对应扩展管理地址：
    - **Chrome 浏览器**：`chrome://extensions/`
+   - **Edge 浏览器**：`edge://extensions/`
 4. 开启页面右上角的 **“开发者模式”** 开关。
-5. 点击左上角的 **“加载已解压的扩展程序”**，选择刚刚解压出的 `dist` 文件夹即可完成安装。
+5. 点击左上角的 **“加载已解压的扩展程序”**，选择刚刚解压得到的 `dist` 文件夹即可完成安装。
 
-### 方式二：从源码编译（开发者）
+### 方式二：从源码构建
+
+适用于二次开发或安全审查：
 
 ```bash
-# 克隆仓库
+# 1. 克隆代码仓库
 git clone https://github.com/XiNian-dada/VanishMe.git
 cd VanishMe
 
-# 安装依赖
+# 2. 安装依赖项 (需要 Node.js 18+)
 npm install
 
-# 编译构建
+# 3. 编译打包生成产物
 npm run build
 
-# 编译后的扩展文件位于 dist 目录
+# 4. 产物输出至 dist/ 目录，按照方式一在浏览器中“加载已解压的扩展程序”即可
 ```
 
----
-
-## 🧪 隐私与指纹效果对比
-
-使用 VanishMe 后，即使在极其严苛的指纹检测网站中，修改痕迹也会被完全隐藏，呈现出与目标地区真实机器一致的状态：
-
-<table>
-  <tr>
-    <th align="center">未启用 VanishMe（漏洞百出）</th>
-    <th align="center">启用 VanishMe 后（完美伪装）</th>
-  </tr>
-  <tr>
-    <td><img src="images/before/detection-before-1.png" alt="检测前 1" width="400"/></td>
-    <td><img src="images/after/detection-after-1.png" alt="检测后 1" width="400"/></td>
-  </tr>
-  <tr>
-    <td><img src="images/before/detection-before-2.png" alt="检测前 2" width="400"/></td>
-    <td><img src="images/after/detection-after-2.png" alt="检测后 2" width="400"/></td>
-  </tr>
-  <tr>
-    <td><img src="images/before/detection-before-3.png" alt="检测前 3" width="400"/></td>
-    <td><img src="images/after/detection-after-3.png" alt="检测后 3" width="400"/></td>
-  </tr>
-</table>
-
-推荐自测站点：
-- [BrowserScan 指纹真实度评测](https://www.browserscan.net/)（推荐测试真机评分与语言匹配）
-- [iprisk.top 原生 API 完整性检测](https://iprisk.top/)
-- [BrowserLeaks 综合反指纹检测](https://browserleaks.com/)
+遇到安装异常？请查阅 [详细安装与故障排查文档](INSTALL.md)。
 
 ---
 
-## 🤝 交流与反馈
+## 指纹检测效果实测
 
-**学 AI 上 LinuxDo: [https://linux.do/](https://linux.do/)**
+使用 VanishMe 配置与美国节点一致的环境后，在权威检测站点实测前后对比如下：
 
-欢迎提交 Issue 反馈建议，或发起 Pull Request 一同改进项目！
+| 检测项目 | 未启用 VanishMe（漏洞暴露） | 启用 VanishMe 后（环境对齐） |
+|:---|:---:|:---:|
+| **BrowserScan 综合真实度评分**<br>*(时区、语言及系统一致性)* | <img src="images/before/detection-before-1.png" alt="BrowserScan 检测前" width="380"/> | <img src="images/after/detection-after-1.png" alt="BrowserScan 满分通过" width="380"/> |
+| **Intl 与底层语言 API 判定**<br>*(封堵 JavaScript 格式化泄露)* | <img src="images/before/detection-before-2.png" alt="语言泄露检测前" width="380"/> | <img src="images/after/detection-after-2.png" alt="语言与 HTTP 头完美对齐" width="380"/> |
+| **WebRTC 穿透与原生原型链检查**<br>*(防止内网 IP 暴露与 Hook 侦测)* | <img src="images/before/detection-before-3.png" alt="WebRTC 泄露检测前" width="380"/> | <img src="images/after/detection-after-3.png" alt="WebRTC 保护与原生签名" width="380"/> |
 
----
-
-## English
-
-<div align="center">
-
-<img src="images/banner-en.png" alt="VanishMe Banner" width="100%"/>
-
-# VanishMe 🥷
-### Professional Browser Fingerprint Disguise & Anti-Detection Extension
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Chrome / Edge](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge-blue.svg)](https://www.google.com/chrome/)
-[![Version: 1.2.4](https://img.shields.io/badge/Version-1.2.4-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
-
-</div>
-
-### 💡 Why VanishMe?
-
-Have you ever encountered these issues:
-- Even when using a high-quality proxy, services like Claude, ChatGPT, or regional websites still prompt **"Service not available in your region"** or flag your account?
-- Frequent CAPTCHAs or suspicious activity verification on overseas platforms?
-
-Modern platforms do not merely inspect your IP address — they deeply inspect your **underlying browser fingerprint and operating environment**:
-1. **Timezone Discrepancies**: Your proxy is in Los Angeles (UTC-8), but your browser reveals your local timezone (e.g. UTC+8).
-2. **Language & Intl Leakage**: Even if you change the UI language, JavaScript APIs like `Intl` (`Intl.DateTimeFormat`, `Intl.RelativeTimeFormat`, `Intl.ListFormat`) still reveal your underlying OS locale.
-3. **Local Chinese Font Sniffing**: Installed fonts like SimSun, Microsoft YaHei, or PingFang are probed via Canvas differential metrics.
-4. **TTS Speech Synthesis Voice Models**: Voices registered by the host OS reveal your underlying language.
-5. **WebRTC STUN Leakage**: WebRTC STUN queries can bypass proxies and expose your true local LAN or ISP physical IPv4/IPv6 addresses.
-6. **Poorly Made Extensions Get Detected**: Naive proxies trigger CreepJS and DataDome detection traps (Illegal Invocation, prototype pollution, stack traces).
-
-👉 **VanishMe is designed to solve all of these issues seamlessly.**
-
-### 🌟 Core Highlights (v1.2.4)
-
-- 🛡️ **Cloudflare Challenge & Turnstile Compatibility (Issue #6)**:
-  - Enforces authentic C++ receiver brand-checking on `Navigator` getters, properly throwing `TypeError: Illegal invocation` on `Navigator.prototype`;
-  - Strictly aligns all `Intl` constructors with ECMA-402 standards, eliminating artificial own properties on instances (`hasOwnProperty('resolvedOptions') === false`) and maintaining pristine prototype inheritance;
-  - Automatically recognizes and exempts security verification sandboxes (`challenges.cloudflare.com`, `hcaptcha.com`, etc.) from script injection and DNR header manipulation, completely resolving Turnstile `Error: 600010`.
-- 🔬 **Manifest V3 CSP Compliance for Built-in Audit Page (Issue #5)**: Extracts the native environment snapshot into an external module `native-snapshot.js` loaded before `injected.js`, eliminating inline script execution CSP warnings in MV3.
-- 🔬 **Eliminate `noProto=false` Method Anomaly (CreepJS Native Standard)**: Fixes proxy trap logic to strictly prevent any `.prototype` property leak on WebIDL native methods (`navigator.geolocation.getCurrentPosition`, `Date.prototype.getTimezoneOffset`, `Date.prototype.toString`).
-- 🛠️ **OpenAI / MFA Login Crash Fix (`Intl.NumberFormat.supportedLocalesOf`)**: Preserves all static methods and properties across the entire `Intl` constructor family (`NumberFormat`, `DateTimeFormat`, `Collator`, `PluralRules`, `RelativeTimeFormat`, `ListFormat`) and `RTCPeerConnection` (`generateCertificate`, `defaultIceServers`), resolving blank screens in React/OpenAI auth runtimes.
-- 🛡️ **Cross-Origin Iframe & Cloudflare Turnstile / OpenAI Login Fix (Issue #4)**: Solves `SecurityError` during cross-origin `contentWindow` access. Seamlessly supports Cloudflare Turnstile verification, OpenAI client browser login callback, Auth0, and payment iframes.
-- ⚡ **WeakSet Zero-Pollution Architecture**: Eliminates custom property attachment (`__vm_injected`) on `Window` objects, ensuring zero cross-origin access exceptions and zero detection footprint.
-- 🔬 **Built-in Ultra-Strict Fingerprint & Leak Audit Center**: Modeled after iplark, browserscan, iprisk, and fuck-claude industrial standards. Perform local, zero-dependency diagnostics across timezones, offsets, 7 Intl APIs, 45+ Chinese fonts, TTS voices, and WebRTC STUN leaks.
-- 📍 **Resolves Issue #2 (Protected Context Alignment)**: Eliminates Chrome/Edge geolocation permission warnings on the diagnostic page. Runs inside the protected sandbox context and returns virtual coordinates with zero physical GPS queries.
-- 🌐 **WebRTC STUN Leak Interception & China ISP IPv6 Detection**: Blocks private LAN candidates (`10.x`, `192.168.x`), TUN interface candidates, and catches leaked domestic physical IPv6 (`240e`/`2408`/`2409`); supports both modern Promise and legacy callback API signatures.
-- 🥷 **CreepJS / DataDome-Grade Stealth**:
-  - **Illegal Invocation Defense**: Native getters throw `TypeError: Illegal invocation` when called with invalid receivers (e.g. `{}`);
-  - **Non-constructor Compliance**: Hooked methods cannot be invoked via `new` (throws `TypeError`) and have no `.prototype` property;
-  - **Prototype Purity**: `Reflect.ownKeys` contains no leaked own properties on instances;
-  - **Detached Iframe Defense**: Hooks `contentWindow` to maintain protected spoofing even when iframes are detached from DOM;
-  - **Full Error.stack Sanitization**: Cleanses all traces of `chrome-extension://` and script filenames.
-- 🗣️ **TTS SpeechSynthesis Voice Filter**: Filters and hides Chinese speech synthesis voice models registered by the host OS.
-- 🎨 **Canvas Differential Font Shielding for 45+ Fonts**: Defends against font enumeration attacks via Canvas `measureText` and `document.fonts.check`.
-- 🔄 **Network & Client Synchronization**: Keeps HTTP request headers (`Accept-Language`) in 100% sync with in-page JavaScript APIs via Declarative Net Request.
-- ⚡ **One-Click Presets**: Pre-configured profiles for the US, Japan, Singapore, Germany, and more.
-
-### 🚀 3-Step Quick Start
-
-1. **Click the extension icon** in your browser toolbar.
-2. **Select your target region** (e.g., 🇺🇸 United States or 🇯🇵 Japan).
-3. **Refresh the page**, and you are fully protected!
-
-### 🎯 Matching Modes
-
-- 🟢 **Whitelist Mode (Recommended)**: Only applies spoofing to domains you explicitly choose (e.g. Claude, OpenAI, overseas portals). Domestic websites remain untouched.
-- 🌐 **Global Mode**: Spoofs your fingerprint on all visited websites.
-- 🔴 **Blacklist Mode**: Spoofs all websites except those on your exclusion list.
-
-### 📦 Installation
-
-#### Method 1: Direct Installation (Recommended)
-
-1. Download the latest `VanishMe-v1.2.0.zip` from [Releases](https://github.com/XiNian-dada/VanishMe/releases).
-2. Unzip the file to extract the `dist` folder.
-3. Open Chrome or Edge and navigate to:
-   - **Edge**: `edge://extensions/`
-   - **Chrome**: `chrome://extensions/`
-4. Turn on **"Developer mode"** in the top-right corner.
-5. Click **"Load unpacked"** and select the extracted `dist` folder.
-
-#### Method 2: Build from Source
-
-```bash
-git clone https://github.com/XiNian-dada/VanishMe.git
-cd VanishMe
-npm install
-npm run build
-# The compiled extension will be in the dist/ folder
-```
+推荐自行验证站点：
+- [BrowserScan 指纹检测](https://www.browserscan.net/)：验证综合欺诈分值与环境一致性
+- [iprisk.top 原生 API 完整性检测](https://iprisk.top/)：验证 `[native code]` 签名与原型链
+- [BrowserLeaks 综合测试](https://browserleaks.com/)：测试 WebRTC、Canvas 与客户端特征
 
 ---
 
-## 📈 Star 历史趋势 / Star History
+## 相关文档与配置参考
+
+- [美国洛杉矶节点详细参数配置指南](CONFIG_GUIDE.md)：手把手指导经纬度、时区 Offset 与语言匹配设置。
+- [扩展程序详细安装排错说明](INSTALL.md)：涵盖常见加载错误排查与离线部署指引。
+- [版本发布与更新日志](RELEASE.md)：查看最新特性与 Bug 修复历史。
+
+---
+
+## Star 历史趋势
 
 <div align="center">
 
@@ -256,4 +182,88 @@ npm run build
 
 ---
 
-**学 AI 上 LinuxDo: [https://linux.do/](https://linux.do/)** / **Learn AI at LinuxDo: [https://linux.do/](https://linux.do/)**
+## 社区与支持
+
+- **讨论社区**：[LinuxDo 论坛 (linux.do)](https://linux.do/)
+- **问题反馈**：欢迎通过 [GitHub Issues](https://github.com/XiNian-dada/VanishMe/issues) 提交 Bug 或改进建议。
+- **开源协议**：本项目基于 [MIT License](LICENSE) 开源。
+
+---
+
+<div id="overview" align="center">
+
+<img src="images/banner-en.png" alt="VanishMe Banner" width="100%"/>
+
+# VanishMe
+
+### Browser Fingerprint Spoofing & Environment Consistency Extension (MV3)
+
+[![Browser: Chromium MV3](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge%20(MV3)-blue.svg)](https://www.google.com/chrome/)
+[![Version: 1.2.4](https://img.shields.io/badge/Version-1.2.4-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+</div>
+
+## Overview
+
+Modern anti-fraud and risk engines evaluate browser fingerprints and runtime environments deeply rather than relying solely on IP location:
+- **Timezone Mismatch**: Your proxy is in Los Angeles (UTC-8), but your browser reveals UTC+8.
+- **Underlying Locale Leaks**: Even if UI language is English, JavaScript runtime APIs (`Intl.DateTimeFormat`, `Intl.ListFormat`) reveal underlying Chinese locales.
+- **Local Chinese Font Sniffing**: Installed fonts like SimSun or Microsoft YaHei are probed via Canvas differential metrics.
+- **TTS Speech Synthesis Voice Leaks**: Chinese voice models registered by the host OS expose system languages.
+- **WebRTC STUN Leakage**: WebRTC STUN queries bypass proxies and expose true local LAN or domestic physical IPv4/IPv6 addresses.
+- **Tampering Detection**: Naive proxy scripts trigger CreepJS / DataDome traps (Illegal Invocation, prototype pollution, stack traces).
+
+**VanishMe** resolves environment discrepancies by synchronously reconciling network-level request headers and in-page JavaScript APIs.
+
+> [!IMPORTANT]
+> **Prerequisites**: VanishMe aligns your browser environment to match your proxy; **it does not provide proxy or VPN capabilities itself**. Please use it alongside an established proxy tool.
+
+## Key Features (v1.2.4)
+
+### 1. Bot Verification & Modern App Compatibility
+- **Cloudflare Turnstile / Challenge Compatibility**: Exempts verification sandboxes (`challenges.cloudflare.com`, `hcaptcha.com`) from injection and DNR header manipulation, completely resolving Turnstile `Error: 600010`.
+- **OpenAI / MFA Login Fix**: Preserves static methods on `Intl` constructors (`supportedLocalesOf`) and `RTCPeerConnection`, preventing auth screen crashes in React/OpenAI runtimes.
+- **Cross-Origin Iframe Hardening**: Prevents `SecurityError` during cross-origin `contentWindow` access, supporting Auth0 and checkout iframes.
+
+### 2. CreepJS / DataDome-Grade Stealth
+- **C++ Level Illegal Invocation Defense**: Getter invocations on invalid receivers (e.g. `Navigator.prototype` or `{}`) throw authentic V8 `TypeError: Illegal invocation`.
+- **ECMA-402 Standards & Pure Prototypes**: Reconstructs the entire `Intl` constructor suite without artificial own properties (`hasOwnProperty('resolvedOptions') === false`).
+- **WebIDL Method Compliance**: Eliminates `noProto` anomalies, forbidding constructor invocation on native methods with zero prototype leakage.
+- **Detached Iframe Defense & Stack Trace Sanitization**: Prevents orphaned window escapes and strips all `chrome-extension://` traces from `Error.stack`.
+
+### 3. Multimodal Physical & Network Defense
+- **WebRTC STUN Leak & ISP IPv6 Defense**: Intercepts internal LAN IP, TUN adapter, and China ISP physical IPv6 (`240e`/`2408`/`2409`) leaks.
+- **Canvas Differential Font Shielding**: Shields against font enumeration attacks across 45+ fonts via Canvas `measureText`.
+- **TTS SpeechSynthesis Voice Filter**: Filters and suppresses Chinese voice models registered on the host OS.
+
+### 4. Dual-Layer Synchronization & Built-in Diagnostics
+- **Network & Runtime Alignment**: Keeps outbound HTTP headers (`Accept-Language`) synchronized with in-page JavaScript APIs via Declarative Net Request.
+- **Built-in Inspection Center (`leak-test.html`)**: Local zero-dependency diagnostics across timezones, Intl, fonts, voices, and STUN leaks.
+- **One-Click Presets**: Pre-configured profiles for the US, Japan, Singapore, Germany, and more.
+
+## Installation
+
+### Method 1: Load Pre-built Extension (Recommended)
+
+1. Download `VanishMe-v1.2.4.zip` from [Releases](https://github.com/XiNian-dada/VanishMe/releases).
+2. Unpack the archive to get the `dist` folder.
+3. Open `chrome://extensions/` or `edge://extensions/`.
+4. Enable **Developer mode** in the upper right.
+5. Click **Load unpacked** and select the extracted `dist` directory.
+
+### Method 2: Build from Source
+
+```bash
+git clone https://github.com/XiNian-dada/VanishMe.git
+cd VanishMe
+npm install
+npm run build
+# Load the generated dist/ folder as an unpacked extension
+```
+
+For configuration steps, refer to the [US Proxy Configuration Guide](CONFIG_GUIDE.md) and [Installation Guide](INSTALL.md).
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
