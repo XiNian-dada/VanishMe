@@ -7,7 +7,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Chrome / Edge](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge-blue.svg)](https://www.google.com/chrome/)
-[![Version: 1.2.3](https://img.shields.io/badge/Version-1.2.3-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
+[![Version: 1.2.4](https://img.shields.io/badge/Version-1.2.4-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
 
 [中文说明](#-为什么需要-vanishme) | [English Documentation](#english)
 
@@ -33,8 +33,13 @@
 
 ---
 
-## 🌟 核心优势（v1.2.3 最新特性）
+## 🌟 核心优势（v1.2.4 最新特性）
 
+- 🛡️ **彻底解决 Cloudflare Challenge 与 Turnstile 人机验证兼容性 (Issue #6)**：
+  - 重构原生 Getter 校验，严格利用底层 C++ brand check 保证在以 `Navigator.prototype` 为 receiver 调用时抛出原生的 `TypeError: Illegal invocation`；
+  - 彻底重构 `Intl` 全系列构造函数（`NumberFormat`、`DateTimeFormat`、`Collator`、`PluralRules`、`RelativeTimeFormat`、`ListFormat`），对齐 ECMA-402 规范，绝不在实例上残留假自有属性（`hasOwnProperty('resolvedOptions') === false`），保持 100% 原型链纯净度与构造器引用一致；
+  - 自动识别并绝对豁免第三方安全验证沙箱（`challenges.cloudflare.com`、`hcaptcha.com` 等），坚决不向验证沙箱内部注入篡改代码，且 DNR 请求头改写规则自动排除验证流量，彻底杜绝防篡改熔断与 `Error: 600010`。
+- 🔬 **根除内置检测页 Manifest V3 CSP 拦截警告 (Issue #5)**：将原生环境快照逻辑独立抽取为外部模块 `native-snapshot.js`，置于 `injected.js` 之前加载，完全符合 Chrome MV3 默认 CSP 规范，零内联脚本报错。
 - 🔬 **彻底消除原生方法 `noProto=false` 破绽 (CreepJS 严格通过)**：修正底层原生函数伪装在处理方法时的 Proxy `has` trap 逻辑，杜绝任何外部函数原型泄漏。`navigator.geolocation.getCurrentPosition`、`Date.prototype.getTimezoneOffset`、`Date.prototype.toString` 严格符合 WebIDL 无 `.prototype` 规范且严禁构造函数调用，100% 达成原生代码纯净度。
 - 🛠️ **修复 OpenAI / MFA 认证页面崩溃白屏 (解决 `Intl.NumberFormat.supportedLocalesOf is not a function`)**：全面强化函数伪装底层架构，完整保留并继承所有原生构造函数（`Intl.NumberFormat`、`Intl.DateTimeFormat`、`Intl.Collator`、`Intl.PluralRules`、`Intl.RelativeTimeFormat`、`Intl.ListFormat` 及 `RTCPeerConnection`）的原型链与全量静态方法（如 `supportedLocalesOf`、`generateCertificate`），彻底杜绝前端现代化应用（React/OpenAI Runtime）因静态方法丢失而黑屏崩溃。
 - 🛡️ **彻底解决跨域 Iframe 与 Cloudflare Turnstile / OpenAI 登录兼容性 (Issue #4)**：深度重构 iframe 隔离与同源策略边界安全判定，彻底根除跨域读取 `contentWindow` 时抛出的 `SecurityError`。完美兼容 Cloudflare Turnstile 人机验证、OpenAI 桌面客户端浏览器回调、Auth0 及第三方支付沙盒。
@@ -79,7 +84,7 @@
 
 ### 方式一：直接安装（推荐小白）
 
-1. 前往 [Releases 发布页](https://github.com/XiNian-dada/VanishMe/releases) 下载最新版本的 `VanishMe-v1.2.3.zip`。
+1. 前往 [Releases 发布页](https://github.com/XiNian-dada/VanishMe/releases) 下载最新版本的 `VanishMe-v1.2.4.zip`。
 2. 解压下载的压缩包，得到 `dist` 文件夹。
 3. 打开 Chrome 或 Edge 浏览器，在地址栏输入对应地址：
    - **Edge 浏览器**：`edge://extensions/`
@@ -154,7 +159,7 @@ npm run build
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Chrome / Edge](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge-blue.svg)](https://www.google.com/chrome/)
-[![Version: 1.2.3](https://img.shields.io/badge/Version-1.2.3-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
+[![Version: 1.2.4](https://img.shields.io/badge/Version-1.2.4-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
 
 </div>
 
@@ -174,8 +179,13 @@ Modern platforms do not merely inspect your IP address — they deeply inspect y
 
 👉 **VanishMe is designed to solve all of these issues seamlessly.**
 
-### 🌟 Core Highlights (v1.2.3)
+### 🌟 Core Highlights (v1.2.4)
 
+- 🛡️ **Cloudflare Challenge & Turnstile Compatibility (Issue #6)**:
+  - Enforces authentic C++ receiver brand-checking on `Navigator` getters, properly throwing `TypeError: Illegal invocation` on `Navigator.prototype`;
+  - Strictly aligns all `Intl` constructors with ECMA-402 standards, eliminating artificial own properties on instances (`hasOwnProperty('resolvedOptions') === false`) and maintaining pristine prototype inheritance;
+  - Automatically recognizes and exempts security verification sandboxes (`challenges.cloudflare.com`, `hcaptcha.com`, etc.) from script injection and DNR header manipulation, completely resolving Turnstile `Error: 600010`.
+- 🔬 **Manifest V3 CSP Compliance for Built-in Audit Page (Issue #5)**: Extracts the native environment snapshot into an external module `native-snapshot.js` loaded before `injected.js`, eliminating inline script execution CSP warnings in MV3.
 - 🔬 **Eliminate `noProto=false` Method Anomaly (CreepJS Native Standard)**: Fixes proxy trap logic to strictly prevent any `.prototype` property leak on WebIDL native methods (`navigator.geolocation.getCurrentPosition`, `Date.prototype.getTimezoneOffset`, `Date.prototype.toString`).
 - 🛠️ **OpenAI / MFA Login Crash Fix (`Intl.NumberFormat.supportedLocalesOf`)**: Preserves all static methods and properties across the entire `Intl` constructor family (`NumberFormat`, `DateTimeFormat`, `Collator`, `PluralRules`, `RelativeTimeFormat`, `ListFormat`) and `RTCPeerConnection` (`generateCertificate`, `defaultIceServers`), resolving blank screens in React/OpenAI auth runtimes.
 - 🛡️ **Cross-Origin Iframe & Cloudflare Turnstile / OpenAI Login Fix (Issue #4)**: Solves `SecurityError` during cross-origin `contentWindow` access. Seamlessly supports Cloudflare Turnstile verification, OpenAI client browser login callback, Auth0, and payment iframes.
