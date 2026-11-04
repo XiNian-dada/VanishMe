@@ -1,7 +1,7 @@
 import type { PrivacyConfig, InjectedConfig } from './types';
 import { DEFAULT_CONFIG } from './defaults';
 import { applyProfileToConfig } from './profile';
-import { shouldEnableSpoofing } from './domain-matcher';
+import { isSiteEnabled, normalizeDomain, normalizeDomainList } from './domain-matcher';
 
 const STORAGE_KEY = 'bpg_config';
 
@@ -10,15 +10,6 @@ export async function getConfig(): Promise<PrivacyConfig> {
     const result = await chrome.storage.local.get(STORAGE_KEY);
     if (result[STORAGE_KEY]) {
       const stored = result[STORAGE_KEY];
-
-      // 合并测试网站域名，确保检测站开箱即用
-      const testDomains = DEFAULT_CONFIG.domainList.filter(d => 
-        d.includes('iprisk') || d.includes('browserscan') || d.includes('browserleaks') || d.includes('ipleak') || d.includes('deviceinfo') || d.includes('iplark') || d.includes('fuck-claude')
-      );
-      const mergedDomainList = Array.from(new Set([
-        ...(stored.domainList || DEFAULT_CONFIG.domainList),
-        ...testDomains
-      ]));
 
       // 补充可能新增的内置预设（如 us-west）
       const existingProfileIds = new Set((stored.profile?.profiles || []).map((p: any) => p.id));
@@ -31,7 +22,7 @@ export async function getConfig(): Promise<PrivacyConfig> {
       return {
         ...DEFAULT_CONFIG,
         ...stored,
-        domainList: mergedDomainList,
+        domainList: stored.domainList ?? DEFAULT_CONFIG.domainList,
         geolocation: {
           ...DEFAULT_CONFIG.geolocation,
           ...(stored.geolocation || {})
@@ -67,11 +58,7 @@ export async function getConfig(): Promise<PrivacyConfig> {
 }
 
 export async function setConfig(config: PrivacyConfig): Promise<void> {
-  try {
-    await chrome.storage.local.set({ [STORAGE_KEY]: config });
-  } catch (error) {
-    console.error('Failed to set config:', error);
-  }
+  await chrome.storage.local.set({ [STORAGE_KEY]: config });
 }
 
 export async function updateConfig(updates: Partial<PrivacyConfig>): Promise<PrivacyConfig> {
@@ -95,32 +82,8 @@ export async function getEffectiveConfigForUrl(url: string): Promise<InjectedCon
     hostname = '';
   }
 
-  // 检查全局开关
-  if (!config.globalEnabled) {
-    return {
-      enabled: false,
-      debugMode: config.debugMode || false,
-      geolocation: config.geolocation,
-      language: config.language,
-      timezone: config.timezone,
-      canvas: config.canvas,
-      webrtc: config.webrtc
-    };
-  }
-
-  // 根据匹配模式和域名列表判断是否启用
-  const matchEnabled = shouldEnableSpoofing(
-    hostname,
-    config.matchMode,
-    config.domainList
-  );
-
-  // 检查站点特定规则（优先级最高）
-  const siteRule = config.siteRules[hostname];
-  const enabled = siteRule ? siteRule.enabled : matchEnabled;
-
   return {
-    enabled,
+    enabled: isSiteEnabled(hostname, config),
     debugMode: config.debugMode || false,
     geolocation: config.geolocation,
     language: config.language,
@@ -135,4 +98,48 @@ export async function applyProfile(profileId: string): Promise<PrivacyConfig> {
   const newConfig = applyProfileToConfig(config, profileId);
   await setConfig(newConfig);
   return newConfig;
+}
+
+/** 站点例外只更新当前域名；null 表示恢复跟随名单。 */
+export async function setSiteEnabled(hostname: string, enabled: boolean | null): Promise<PrivacyConfig> {
+  const config = await getConfig();
+  if (enabled === null) delete config.siteRules[hostname];
+  else config.siteRules[hostname] = { enabled };
+  await setConfig(config);
+  return config;
+}
+
+/** 表单只提交用户实际修改的字段，保留后台或另一页面的新值。 */
+export async function saveConfigChanges(before: PrivacyConfig, after: PrivacyConfig): Promise<void> {
+  const latest = await getConfig();
+  // 配置组只合并到字段层；数组（域名、语言等）作为一个完整字段保存。
+  for (const key of Object.keys(after) as (keyof PrivacyConfig)[]) {
+    if (JSON.stringify(before[key]) === JSON.stringify(after[key])) continue;
+    const value = after[key];
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      const previous = before[key] as Record<string, unknown>;
+      const target = latest[key] as Record<string, unknown>;
+      for (const field of new Set([...Object.keys(previous), ...Object.keys(value)])) {
+        const next = (value as Record<string, unknown>)[field];
+        if (JSON.stringify(previous[field]) === JSON.stringify(next)) continue;
+        if (next === undefined) delete target[field];
+        else target[field] = next;
+      }
+    } else {
+      Object.assign(latest, { [key]: value });
+    }
+  }
+  await setConfig(latest);
+}
+
+/** 名单按钮只修改选定规则，避免把弹窗中的旧配置整体写回。 */
+export async function changeDomainRule(pattern: string, remove: boolean): Promise<PrivacyConfig> {
+  const config = await getConfig();
+  const normalized = normalizeDomain(pattern);
+  const patterns = normalizeDomainList(config.domainList);
+  config.domainList = remove
+    ? patterns.filter(item => item !== normalized)
+    : [...new Set([...patterns, normalized])];
+  await setConfig(config);
+  return config;
 }

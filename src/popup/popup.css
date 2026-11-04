@@ -375,3 +375,29 @@ footer .btn-primary {
 footer .btn-secondary {
   flex: 1;
 }
+
+/* GitHub 入口沿用页面的深色图标样式，并保留键盘焦点。 */
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 6px;
+  color: #aaa;
+  border-radius: 4px;
+}
+.github-link:hover { color: #fff; background: #333; }
+.github-link:focus-visible { outline: 2px solid #4caf50; outline-offset: 2px; }
+
+.header-content h1 { flex: 1; }
+
+/* 规则范围和命中项保持紧凑，长域名允许换行。 */
+.rule-controls { margin-top: 8px; align-items: center; }
+.rule-controls select { flex: 1; min-width: 0; }
+.rule-controls button { white-space: nowrap; }
+.matched-rule { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 12px; }
+.matched-rule span { overflow-wrap: anywhere; }
+.matched-rule button { flex-shrink: 0; }
+#siteRuleStatus { margin-bottom: 6px; }
+.site-status .site-actions { margin-top: 10px; }
+button:disabled { opacity: 0.45; cursor: not-allowed; }

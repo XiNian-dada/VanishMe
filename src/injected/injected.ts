@@ -1,4 +1,5 @@
 import type { InjectedConfig } from '../shared/types';
+import { isSecurityChallenge } from '../shared/domain-matcher';
 import { saveOriginalMethods, makeNativeFunction, createNativeGetter } from './utils';
 import { installGeolocationSpoof } from './geolocation';
 import { installPermissionsSpoof } from './permissions';
@@ -10,28 +11,10 @@ import { installSpeechSpoof } from './speech';
 import { installWebRTCSpoof } from './webrtc';
 
 (function() {
-  // Never inject or tamper with security challenge/verification frames (Cloudflare Turnstile, hCaptcha, etc.)
-  try {
-    const host = window.location?.hostname || '';
-    if (
-      host === 'challenges.cloudflare.com' ||
-      host.endsWith('.challenges.cloudflare.com') ||
-      host.endsWith('.cloudflarechallenge.com') ||
-      host.endsWith('.cloudflarecaptcha.com') ||
-      host.endsWith('.hcaptcha.com') ||
-      host.endsWith('.recaptcha.net') ||
-      host.endsWith('.arkoselabs.com') ||
-      host.endsWith('.funcaptcha.com')
-    ) {
-      return;
-    }
-  } catch {}
+  if (isSecurityChallenge(window.location.hostname)) return;
 
-  // 1. Install anti-detection and save originals synchronously
+  // 1. 保存原始方法，等待最新配置后再安装伪装。
   saveOriginalMethods();
-  installAntiDetection();
-
-  const CACHE_KEY = '__vm_cfg__';
   let activeConfig: InjectedConfig | null = null;
   let debugMode = false;
 
@@ -84,6 +67,10 @@ import { installWebRTCSpoof } from './webrtc';
     log('Applying spoofing configuration...');
 
     try {
+      if (!protectedWindows.has(window)) {
+        installAntiDetection();
+        installIframeHooks();
+      }
       applyConfigToWindow(config, window);
       if (config.canvas && config.canvas.enabled) {
         log('Installing Canvas spoof');
@@ -95,18 +82,8 @@ import { installWebRTCSpoof } from './webrtc';
     }
   }
 
-  // 2. Try pre-cached config from sessionStorage for instant 0ms protection
-  try {
-    const raw = sessionStorage.getItem(CACHE_KEY);
-    if (raw) {
-      const cached = JSON.parse(raw);
-      if (cached && typeof cached === 'object') {
-        applyConfig(cached);
-      }
-    }
-  } catch {}
-
-  // 3. Cryptographically secure nonce handshake with content script
+  // 2. 不读取页面旧缓存，以免已禁用的站点提前安装不可撤销的钩子。
+  // 校验本次请求的 nonce，仅使用扩展返回的最新配置。
   const nonce = typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -121,17 +98,9 @@ import { installWebRTCSpoof } from './webrtc';
       liveConfigApplied = true;
 
       const config: InjectedConfig = event.data.config;
-      try {
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify(config));
-      } catch {}
-
       applyConfig(config);
     } else if (event.data.type === '__VM_UPDATE__') {
       const config: InjectedConfig = event.data.config;
-      try {
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify(config));
-      } catch {}
-
       applyConfig(config);
     }
   });
@@ -139,7 +108,7 @@ import { installWebRTCSpoof } from './webrtc';
   // Request latest config from content script
   window.postMessage({ type: '__VM_REQ__', nonce }, '*');
 
-  // 4. Hook iframe creation & contentWindow safely for same-origin dynamic iframes
+  // 3. Hook iframe creation & contentWindow safely for same-origin dynamic iframes
   // Critical fix for Issue #4 / Cloudflare Turnstile / OpenAI login:
   // - Never access custom properties on cross-origin windows
   // - Catch all SecurityError when probing iframe origin
@@ -153,54 +122,56 @@ import { installWebRTCSpoof } from './webrtc';
     }
   }
 
-  try {
-    if (typeof HTMLIFrameElement !== 'undefined' && HTMLIFrameElement.prototype) {
-      const origContentWindowDesc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow');
-      if (origContentWindowDesc && origContentWindowDesc.get) {
-        const origGet = origContentWindowDesc.get;
-        const wrappedContentWindow = function(this: HTMLIFrameElement) {
-          const iWin = origGet.call(this);
-          try {
-            if (iWin && (iWin as any) !== window && isSameOriginWindow(iWin)) {
-              if (activeConfig && activeConfig.enabled && !protectedWindows.has(iWin)) {
-                applyConfigToWindow(activeConfig, iWin);
+  function installIframeHooks() {
+    try {
+      if (typeof HTMLIFrameElement !== 'undefined' && HTMLIFrameElement.prototype) {
+        const origContentWindowDesc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow');
+        if (origContentWindowDesc && origContentWindowDesc.get) {
+          const origGet = origContentWindowDesc.get;
+          const wrappedContentWindow = function(this: HTMLIFrameElement) {
+            const iWin = origGet.call(this);
+            try {
+              if (iWin && (iWin as any) !== window && isSameOriginWindow(iWin)) {
+                if (activeConfig && activeConfig.enabled && !protectedWindows.has(iWin)) {
+                  applyConfigToWindow(activeConfig, iWin);
+                }
               }
+            } catch {
+              // Silently swallow any cross-origin inspection errors
             }
-          } catch {
-            // Silently swallow any cross-origin inspection errors
-          }
-          return iWin;
-        };
+            return iWin;
+          };
 
-        Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
-          get: createNativeGetter('contentWindow', wrappedContentWindow, origGet) as any,
-          configurable: true,
-          enumerable: true
-        });
+          Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
+            get: createNativeGetter('contentWindow', wrappedContentWindow, origGet) as any,
+            configurable: true,
+            enumerable: true
+          });
+        }
       }
+
+      const targetDocProto = typeof Document !== 'undefined' ? Document.prototype : document;
+      const originalCreateElement = targetDocProto.createElement || document.createElement;
+      const wrappedCreateElement = function createElement(this: Document, tagName: string, options?: any) {
+        const element = originalCreateElement.call(this, tagName, options);
+        if (typeof tagName === 'string' && tagName.toLowerCase() === 'iframe') {
+          element.addEventListener('load', () => {
+            try {
+              const iframeWin = (element as HTMLIFrameElement).contentWindow;
+              if (iframeWin && (iframeWin as any) !== window && isSameOriginWindow(iframeWin)) {
+                if (activeConfig && activeConfig.enabled && !protectedWindows.has(iframeWin)) {
+                  applyConfigToWindow(activeConfig, iframeWin);
+                }
+              }
+            } catch {}
+          });
+        }
+        return element;
+      };
+
+      targetDocProto.createElement = makeNativeFunction(wrappedCreateElement, originalCreateElement, 'createElement') as any;
+    } catch (e) {
+      console.warn('VanishMe: Failed to hook iframe creation:', e);
     }
-
-    const targetDocProto = typeof Document !== 'undefined' ? Document.prototype : document;
-    const originalCreateElement = targetDocProto.createElement || document.createElement;
-    const wrappedCreateElement = function createElement(this: Document, tagName: string, options?: any) {
-      const element = originalCreateElement.call(this, tagName, options);
-      if (typeof tagName === 'string' && tagName.toLowerCase() === 'iframe') {
-        element.addEventListener('load', () => {
-          try {
-            const iframeWin = (element as HTMLIFrameElement).contentWindow;
-            if (iframeWin && (iframeWin as any) !== window && isSameOriginWindow(iframeWin)) {
-              if (activeConfig && activeConfig.enabled && !protectedWindows.has(iframeWin)) {
-                applyConfigToWindow(activeConfig, iframeWin);
-              }
-            }
-          } catch {}
-        });
-      }
-      return element;
-    };
-
-    targetDocProto.createElement = makeNativeFunction(wrappedCreateElement, originalCreateElement, 'createElement') as any;
-  } catch (e) {
-    console.warn('VanishMe: Failed to hook iframe creation:', e);
   }
 })();
