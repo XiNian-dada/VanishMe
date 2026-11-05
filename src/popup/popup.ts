@@ -536,3 +536,8 @@ document.querySelectorAll('.profile-card').forEach(card => {
 
 // Initialize
 loadConfig();
+
+// 打开弹窗时确认用户脚本开关；未开启时提示首次加载保护不完整。
+chrome.runtime?.sendMessage?.({ type: 'vm-sync-injection' }).then((active: boolean) => {
+  (document.getElementById('firstLoadHint') as HTMLElement).hidden = active;
+}).catch(() => {});
