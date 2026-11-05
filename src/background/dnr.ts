@@ -4,11 +4,15 @@ import { domainPatternSource, normalizeDomainList, SECURITY_CHALLENGE_DOMAINS } 
 const ACCEPT_LANGUAGE_RULE_ID_START = 1;
 const ACCEPT_LANGUAGE_RULE_ID_END = 1000;
 
+// DNR 默认不匹配 main_frame，必须显式列出，否则页面导航会发送真实的 Accept-Language。
+const ACCEPT_LANGUAGE_RESOURCE_TYPES = Object.values(chrome.declarativeNetRequest.ResourceType);
+
 /** 使用与页面相同的域名边界，避免 requestDomains 隐式匹配子域名。 */
 function createRuleCondition(pattern: string): chrome.declarativeNetRequest.RuleCondition {
   return {
     regexFilter: `^https?://(?:[^/?#@]*@)?${domainPatternSource(pattern)}(?::[0-9]+)?(?:[/?#]|$)`,
-    isUrlFilterCaseSensitive: false
+    isUrlFilterCaseSensitive: false,
+    resourceTypes: ACCEPT_LANGUAGE_RESOURCE_TYPES
   };
 }
 
