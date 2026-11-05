@@ -7,7 +7,7 @@
 ### 基于 Chrome MV3 的浏览器指纹伪装与环境一致性扩展，专克严苛风控与大模型地区封锁
 
 [![Browser: Chromium MV3](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge%20(MV3)-blue.svg)](https://www.google.com/chrome/)
-[![Version: 1.2.4](https://img.shields.io/badge/Version-1.2.4-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
+[![Version: 1.2.5](https://img.shields.io/badge/Version-1.2.5-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 [中文说明](#核心概述) | [English Documentation](#overview)
@@ -67,7 +67,7 @@ flowchart TD
 
 ---
 
-## 核心特性 (v1.2.4)
+## 核心特性 (v1.2.5)
 
 ### 1. 深度人机验证与现代应用兼容
 - **Cloudflare Turnstile / Challenge 完美兼容**：自动识别并绝对豁免第三方安全验证沙箱（`challenges.cloudflare.com`、`hcaptcha.com` 等），验证沙箱内不注入代码且豁免 DNR 请求头改写，彻底根除 `Error: 600010`。
@@ -117,7 +117,7 @@ flowchart TD
 
 ### 方式一：加载预编译包（推荐）
 
-1. 前往 [Releases 发布页面](https://github.com/XiNian-dada/VanishMe/releases) 下载最新版本的 `VanishMe-v1.2.4.zip`。
+1. 前往 [Releases 发布页面](https://github.com/XiNian-dada/VanishMe/releases) 下载最新版本的 `VanishMe-v1.2.5.zip`。
 2. 解压下载的压缩包，得到 `dist` 目录。
 3. 打开基于 Chromium 的浏览器，在地址栏输入对应扩展管理地址：
    - **Chrome 浏览器**：`chrome://extensions/`
@@ -205,7 +205,7 @@ npm run build
 ### Browser Fingerprint Spoofing & Environment Consistency Extension (MV3)
 
 [![Browser: Chromium MV3](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge%20(MV3)-blue.svg)](https://www.google.com/chrome/)
-[![Version: 1.2.4](https://img.shields.io/badge/Version-1.2.4-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
+[![Version: 1.2.5](https://img.shields.io/badge/Version-1.2.5-brightgreen.svg)](https://github.com/XiNian-dada/VanishMe/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 </div>
@@ -225,7 +225,7 @@ Modern anti-fraud and risk engines evaluate browser fingerprints and runtime env
 > [!IMPORTANT]
 > **Prerequisites**: VanishMe aligns your browser environment to match your proxy; **it does not provide proxy or VPN capabilities itself**. Please use it alongside an established proxy tool.
 
-## Key Features (v1.2.4)
+## Key Features (v1.2.5)
 
 ### 1. Bot Verification & Modern App Compatibility
 - **Cloudflare Turnstile / Challenge Compatibility**: Exempts verification sandboxes (`challenges.cloudflare.com`, `hcaptcha.com`) from injection and DNR header manipulation, completely resolving Turnstile `Error: 600010`.
@@ -252,7 +252,7 @@ Modern anti-fraud and risk engines evaluate browser fingerprints and runtime env
 
 ### Method 1: Load Pre-built Extension (Recommended)
 
-1. Download `VanishMe-v1.2.4.zip` from [Releases](https://github.com/XiNian-dada/VanishMe/releases).
+1. Download `VanishMe-v1.2.5.zip` from [Releases](https://github.com/XiNian-dada/VanishMe/releases).
 2. Unpack the archive to get the `dist` folder.
 3. Open `chrome://extensions/` or `edge://extensions/`.
 4. Enable **Developer mode** in the upper right.
