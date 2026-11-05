@@ -236,8 +236,9 @@ test('完整配置页保存名单及删除例外时保留其他页面的新配�
   assert.deepEqual(env.config().domainList, ['example.com']);
 });
 
-test('旧 sessionStorage 不会提前安装伪装，禁用站点不安装 iframe 钩子', () => {
+function loadInjected(cached) {
   const calls = [];
+  const store = new Map(cached ? [['__vm_cfg__', JSON.stringify(cached)]] : []);
   let listener;
   let request;
   const createElement = () => {};
@@ -248,7 +249,9 @@ test('旧 sessionStorage 不会提前安装伪装，禁用站点不安装 iframe
     postMessage: data => { request = data; }
   };
   const context = vm.createContext({ window, document, console, sessionStorage: {
-    getItem: () => JSON.stringify({ enabled: true, language: { enabled: true } }), setItem() {}
+    getItem: key => store.get(key) ?? null,
+    setItem: (key, value) => store.set(key, value),
+    removeItem: key => store.delete(key)
   } });
   const stub = {
     isSecurityChallenge: () => false, saveOriginalMethods() {},
@@ -257,13 +260,54 @@ test('旧 sessionStorage 不会提前安装伪装，禁用站点不安装 iframe
   };
   const source = transpile(readFileSync(resolve(root, 'src/injected/injected.ts'), 'utf8'));
   vm.runInContext(`(function(require,exports) {${source}\n})`, context)(() => stub, {});
-  assert.deepEqual(calls, []);
-  assert.equal(document.createElement, createElement);
-  listener({ source: window, data: { type: '__VM_RES__', nonce: request.nonce, config: { enabled: false } } });
-  assert.deepEqual(calls, []);
-  assert.equal(document.createElement, createElement);
-  listener({ source: window, data: { type: '__VM_UPDATE__', config: { enabled: true, language: { enabled: true } } } });
-  assert.deepEqual(calls, ['anti', 'language']);
+  return {
+    calls, store, document, createElement,
+    respond: config => listener({ source: window, data: { type: '__VM_RES__', nonce: request.nonce, config } }),
+    update: config => listener({ source: window, data: { type: '__VM_UPDATE__', config } })
+  };
+}
+
+const ENABLED = { enabled: true, language: { enabled: true } };
+
+test('已启用站点的缓存在握手前同步安装伪装，避免早期脚本读到真实环境', () => {
+  const page = loadInjected(ENABLED);
+  assert.deepEqual(page.calls, ['anti', 'language']);
+  assert.notEqual(page.document.createElement, page.createElement);
+});
+
+test('没有缓存或缓存未启用时不提前安装，禁用站点不安装 iframe 钩子', () => {
+  for (const cached of [null, { enabled: false, language: { enabled: true } }]) {
+    const page = loadInjected(cached);
+    assert.deepEqual(page.calls, []);
+    page.respond({ enabled: false });
+    assert.deepEqual(page.calls, []);
+    assert.equal(page.document.createElement, page.createElement);
+    page.update(ENABLED);
+    assert.deepEqual(page.calls, ['anti', 'language']);
+  }
+});
+
+test('站点被禁用时清除缓存，启用时写入缓存', () => {
+  const page = loadInjected(ENABLED);
+  page.respond({ enabled: false });
+  assert.equal(page.store.has('__vm_cfg__'), false);
+  assert.deepEqual(loadInjected(null).calls, []);
+  page.update(ENABLED);
+  assert.equal(JSON.parse(page.store.get('__vm_cfg__')).enabled, true);
+});
+
+test('非法规则被跳过，不影响其余规则、页面判断和请求头规则', async () => {
+  const env = setup({ matchMode: 'blacklist', domainList: ['[bad', 'blocked.com'] });
+  assert.equal(env.matcher.normalizeDomain('[bad'), '');
+  assert.deepEqual(Array.from(env.matcher.normalizeDomainList(['[bad', 'blocked.com'])), ['blocked.com']);
+  assert.equal(env.matcher.matchDomain('example.com', '[bad'), false);
+  assert.equal(env.matcher.shouldEnableSpoofing('example.com', 'blacklist', ['[bad']), true);
+  assert.equal(env.matcher.shouldEnableSpoofing('blocked.com', 'blacklist', ['[bad', 'blocked.com']), false);
+  await env.dnr.updateAcceptLanguageRule(await env.storage.getConfig());
+  assert.equal(headerEnabled(env.rules(), 'https://example.com/'), true);
+  assert.equal(headerEnabled(env.rules(), 'https://blocked.com/'), false);
+  await env.storage.changeDomainRule('[bad', false);
+  assert.deepEqual(env.config().domainList, ['blocked.com']);
 });
 
 

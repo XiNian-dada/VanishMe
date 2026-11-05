@@ -139,7 +139,7 @@ export async function changeDomainRule(pattern: string, remove: boolean): Promis
   const patterns = normalizeDomainList(config.domainList);
   config.domainList = remove
     ? patterns.filter(item => item !== normalized)
-    : [...new Set([...patterns, normalized])];
+    : normalizeDomainList([...patterns, normalized]);
   await setConfig(config);
   return config;
 }

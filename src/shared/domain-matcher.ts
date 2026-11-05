@@ -4,9 +4,14 @@ import type { PrivacyConfig } from './types';
 export function normalizeDomain(pattern: string): string {
   const value = pattern.trim();
   if (!value) return '';
-  const url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
-  // URL 实现可能将星号编码为 %2A；规则中的星号必须保留为通配符。
-  return url.hostname.toLowerCase().replace(/%2a/gi, '*').replace(/\.$/, '');
+  try {
+    const url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
+    // URL 实现可能将星号编码为 %2A；规则中的星号必须保留为通配符。
+    return url.hostname.toLowerCase().replace(/%2a/gi, '*').replace(/\.$/, '');
+  } catch {
+    // 单条非法规则不能让整个名单失效，否则页面伪装和请求头规则都会停止工作。
+    return '';
+  }
 }
 
 /** 两个配置页面共用名单解析，保存标准化且去重的规则。 */
@@ -26,8 +31,9 @@ export function domainPatternSource(pattern: string): string {
 }
 
 export function matchDomain(domain: string, pattern: string): boolean {
-  if (!domain || !pattern.trim()) return false;
-  return new RegExp(`^${domainPatternSource(pattern)}$`, 'i').test(normalizeDomain(domain));
+  const normalized = normalizeDomain(pattern);
+  if (!domain || !normalized) return false;
+  return new RegExp(`^${domainPatternSource(normalized)}$`, 'i').test(normalizeDomain(domain));
 }
 
 export function matchDomainList(domain: string, patterns: string[]): boolean {

@@ -13,7 +13,7 @@ import { installWebRTCSpoof } from './webrtc';
 (function() {
   if (isSecurityChallenge(window.location.hostname)) return;
 
-  // 1. 保存原始方法，等待最新配置后再安装伪装。
+  // 1. 保存原始方法，确认站点启用后再安装伪装。
   saveOriginalMethods();
   let activeConfig: InjectedConfig | null = null;
   let debugMode = false;
@@ -82,8 +82,29 @@ import { installWebRTCSpoof } from './webrtc';
     }
   }
 
-  // 2. 不读取页面旧缓存，以免已禁用的站点提前安装不可撤销的钩子。
-  // 校验本次请求的 nonce，仅使用扩展返回的最新配置。
+  // 2. 握手是异步的，页面最早的脚本会先于它运行，因此用缓存同步安装以避免泄漏真实环境。
+  // 只缓存已启用站点的配置；站点被禁用时清除，已禁用的站点不会提前安装不可撤销的钩子。
+  const CACHE_KEY = '__vm_cfg__';
+
+  function cacheConfig(config: InjectedConfig) {
+    try {
+      if (config && config.enabled) {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify(config));
+      } else {
+        sessionStorage.removeItem(CACHE_KEY);
+      }
+    } catch {}
+  }
+
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    const cached = raw ? JSON.parse(raw) : null;
+    if (cached && typeof cached === 'object' && cached.enabled === true) {
+      applyConfig(cached);
+    }
+  } catch {}
+
+  // 校验本次请求的 nonce，再用扩展返回的最新配置更新缓存。
   const nonce = typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -98,9 +119,11 @@ import { installWebRTCSpoof } from './webrtc';
       liveConfigApplied = true;
 
       const config: InjectedConfig = event.data.config;
+      cacheConfig(config);
       applyConfig(config);
     } else if (event.data.type === '__VM_UPDATE__') {
       const config: InjectedConfig = event.data.config;
+      cacheConfig(config);
       applyConfig(config);
     }
   });
