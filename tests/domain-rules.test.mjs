@@ -44,6 +44,7 @@ function setup(overrides = {}, url = 'https://example.com/page', URLClass = URL)
     tabs: { query: async () => [{ id: 1, url }], reload: async id => { reloads.push(id); } },
     declarativeNetRequest: {
       RuleActionType: { MODIFY_HEADERS: 'modifyHeaders', ALLOW: 'allow' },
+      ResourceType: { MAIN_FRAME: 'main_frame', SUB_FRAME: 'sub_frame', XMLHTTPREQUEST: 'xmlhttprequest' },
       HeaderOperation: { SET: 'set' },
       getDynamicRules: async () => structuredClone(rules),
       updateDynamicRules: async update => { rules = update.addRules || []; }
@@ -310,6 +311,15 @@ test('非法规则被跳过，不影响其余规则、页面判断和请求头�
   assert.deepEqual(env.config().domainList, ['blocked.com']);
 });
 
+
+test('请求头规则和豁免规则都显式覆盖页面导航', async () => {
+  const env = setup({ matchMode: 'blacklist', domainList: ['blocked.com'] });
+  await env.dnr.updateAcceptLanguageRule(await env.storage.getConfig());
+  assert.ok(env.rules().length > 0);
+  for (const rule of env.rules()) {
+    assert.ok(rule.condition.resourceTypes.includes('main_frame'));
+  }
+});
 
 test('URL 编码星号时仍保留通配符，两个页面能显示并保存已有 %2A 规则', async () => {
   // 模拟会将 hostname 中星号百分号编码的 URL 实现，无需启动浏览器。
