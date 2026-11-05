@@ -1,9 +1,20 @@
 import { defineConfig } from 'vite';
+import { build } from 'esbuild';
 import { resolve } from 'path';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 export default defineConfig({
   plugins: [
+    {
+      name: 'standalone-content-scripts',
+      async closeBundle() {
+        // Manifest content scripts require self-contained classic scripts.
+        await build({
+          entryPoints: ['src/content/content.ts', 'src/injected/injected.ts'],
+          outdir: 'dist', outbase: 'src', bundle: true, format: 'iife', target: 'es2020'
+        });
+      }
+    },
     viteStaticCopy({
       targets: [
         {
@@ -46,8 +57,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         'background/service-worker': resolve(__dirname, 'src/background/service-worker.ts'),
-        'content/content': resolve(__dirname, 'src/content/content.ts'),
-        'injected/injected': resolve(__dirname, 'src/injected/injected.ts'),
         'popup/popup': resolve(__dirname, 'src/popup/popup.ts'),
         'options/options': resolve(__dirname, 'src/options/options.ts'),
         'leak-test/leak-test': resolve(__dirname, 'src/leak-test/leak-test.ts'),

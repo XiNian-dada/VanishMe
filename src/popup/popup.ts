@@ -1,7 +1,10 @@
 import './popup.css';
-import { getConfig, setConfig, resetConfig, applyProfile } from '../shared/storage';
+import { getConfig, setConfig, resetConfig, applyProfile, saveConfigChanges, setSiteEnabled, changeDomainRule } from '../shared/storage';
+import { updateAcceptLanguageRule } from '../background/dnr';
 import { DEFAULT_CONFIG } from '../shared/defaults';
 import type { PrivacyConfig, GeolocationHistory } from '../shared/types';
+
+import { matchDomain, normalizeDomain, isSiteEnabled, normalizeDomainList } from '../shared/domain-matcher';
 
 // DOM elements
 const globalEnabledEl = document.getElementById('globalEnabled') as HTMLInputElement;
@@ -14,6 +17,14 @@ const disableSiteBtn = document.getElementById('disableSite') as HTMLButtonEleme
 
 const matchModeEl = document.getElementById('matchMode') as HTMLSelectElement;
 const domainListEl = document.getElementById('domainList') as HTMLTextAreaElement;
+const domainScopeEl = document.getElementById('domainScope') as HTMLSelectElement;
+const addDomainBtn = document.getElementById('addDomain') as HTMLButtonElement;
+const domainActionsEl = document.getElementById('domainActions') as HTMLElement;
+const rulePreviewEl = document.getElementById('rulePreview') as HTMLElement;
+const matchedRulesEl = document.getElementById('matchedRules') as HTMLElement;
+const siteRuleStatusEl = document.getElementById('siteRuleStatus') as HTMLElement;
+const followSiteBtn = document.getElementById('followSite') as HTMLButtonElement;
+
 
 const openOptionsHeaderBtn = document.getElementById('openOptionsHeader') as HTMLButtonElement;
 
@@ -49,6 +60,7 @@ const resetBtn = document.getElementById('reset') as HTMLButtonElement;
 const autoSaveToast = document.getElementById('autoSaveToast') as HTMLElement;
 
 let currentConfig: PrivacyConfig;
+let savedConfig: PrivacyConfig;
 let currentHostname: string = '';
 let autoSaveTimer: number | null = null;
 
@@ -70,17 +82,22 @@ function showAutoSaveToast() {
 
 async function loadConfig() {
   currentConfig = await getConfig();
+  savedConfig = structuredClone(currentConfig);
 
+  currentHostname = '';
   // Get current tab hostname
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.url) {
-      currentHostname = new URL(tab.url).hostname;
+      const url = new URL(tab.url);
+      currentHostname = ['http:', 'https:'].includes(url.protocol) ? url.hostname : '';
       currentSiteEl.textContent = currentHostname;
     }
   } catch (error) {
     currentSiteEl.textContent = 'N/A';
   }
+
+  currentSiteEl.textContent = currentHostname || '不支持当前页面';
 
   // Populate UI
   globalEnabledEl.checked = currentConfig.globalEnabled;
@@ -90,7 +107,7 @@ async function loadConfig() {
 
   // Match mode
   matchModeEl.value = currentConfig.matchMode || 'global';
-  domainListEl.value = (currentConfig.domainList || []).join('\n');
+  domainListEl.value = normalizeDomainList(currentConfig.domainList || []).join('\n');
 
   // Geolocation
   geolocationEnabledEl.checked = currentConfig.geolocation.enabled;
@@ -120,6 +137,7 @@ async function loadConfig() {
 
   // Canvas
   canvasEnabledEl.checked = currentConfig.canvas.enabled;
+  renderDomainActions();
 }
 
 function updateGlobalStatus() {
@@ -139,13 +157,17 @@ async function saveToggle(key: 'globalEnabled' | 'autoIPSync', enabled: boolean)
   }
 }
 
-async function saveChanges() {
+// 串行保存失焦事件，避免点击快捷按钮时旧表单仍在写入。
+let pendingSave = Promise.resolve();
+function saveChanges(): Promise<void> {
+  pendingSave = pendingSave.then(saveForm);
+  return pendingSave;
+}
+
+async function saveForm() {
   try {
     // Parse domain list
-    const domainListArray = domainListEl.value
-      .split('\n')
-      .map(d => d.trim())
-      .filter(d => d.length > 0);
+    const domainListArray = normalizeDomainList(domainListEl.value.split('\n'));
 
     // Parse languages
     const languagesArray = languagesEl.value
@@ -209,8 +231,11 @@ async function saveChanges() {
 
     currentConfig.canvas.enabled = canvasEnabledEl.checked;
 
-    await setConfig(currentConfig);
+    await saveConfigChanges(savedConfig, currentConfig);
+    savedConfig = structuredClone(currentConfig);
+    domainListEl.value = currentConfig.domainList.join('\n');
 
+    renderDomainActions();
     // Show toast
     showAutoSaveToast();
 
@@ -244,76 +269,67 @@ async function handleApplyProfile(profileId: string) {
   }
 }
 
-async function handleEnableSite() {
-  if (!currentHostname) return;
-
-  const domainListArray = domainListEl.value
-    .split('\n')
-    .map(d => d.trim())
-    .filter(d => d.length > 0);
-
-  // Add to whitelist or remove from blacklist depending on match mode
-  if (currentConfig.matchMode === 'whitelist') {
-    // Add to whitelist if not already there
-    if (!domainListArray.includes(currentHostname)) {
-      domainListArray.push(currentHostname);
-      currentConfig.domainList = domainListArray;
-      domainListEl.value = domainListArray.join('\n');
-    }
-  } else if (currentConfig.matchMode === 'blacklist') {
-    // Remove from blacklist
-    const index = domainListArray.indexOf(currentHostname);
-    if (index > -1) {
-      domainListArray.splice(index, 1);
-      currentConfig.domainList = domainListArray;
-      domainListEl.value = domainListArray.join('\n');
-    }
+/** 展示本次添加范围，以及当前网站实际命中的每一条规则。 */
+function renderDomainActions() {
+  const isGlobal = matchModeEl.value === 'global';
+  domainActionsEl.hidden = isGlobal;
+  const pattern = domainScopeEl.value === 'subdomains' ? `*.${currentHostname}` : currentHostname;
+  rulePreviewEl.textContent = currentHostname ? `将添加：${pattern}` : '仅支持 HTTP / HTTPS 网站';
+  addDomainBtn.textContent = matchModeEl.value === 'blacklist' ? '添加到黑名单' : '添加到白名单';
+  addDomainBtn.disabled = !currentHostname || currentConfig.domainList.some(item => normalizeDomain(item) === pattern);
+  matchedRulesEl.replaceChildren();
+  for (const rule of normalizeDomainList(currentConfig.domainList).filter(item => matchDomain(currentHostname, item))) {
+    const row = document.createElement('div');
+    row.className = 'matched-rule';
+    const label = document.createElement('span');
+    label.textContent = `命中：${rule}`;
+    const remove = document.createElement('button');
+    remove.className = 'btn-secondary btn-sm';
+    remove.textContent = '移除规则';
+    remove.onclick = () => handleDomainRule(rule, true);
+    row.append(label, remove);
+    matchedRulesEl.appendChild(row);
   }
-
-  await setConfig(currentConfig);
-
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab?.id) {
-    chrome.tabs.reload(tab.id);
-  }
-
-  window.close();
+  const override = currentConfig.siteRules[currentHostname];
+  const enabled = isSiteEnabled(currentHostname, currentConfig);
+  siteRuleStatusEl.textContent = `当前${enabled ? '启用' : '不启用'}伪装。${override ? `站点例外：${override.enabled ? '启用' : '不启用'}，优先于名单。` : '跟随匹配模式和名单。'}${!currentConfig.globalEnabled ? '全局保护已关闭。' : ''}`;
+  enableSiteBtn.disabled = !currentHostname;
+  disableSiteBtn.disabled = !currentHostname;
+  followSiteBtn.disabled = !currentHostname || !override;
 }
 
-async function handleDisableSite() {
+/** 名单与站点例外独立操作，通配符只在用户明确确认后删除。 */
+async function handleDomainRule(pattern: string, remove: boolean) {
   if (!currentHostname) return;
+  if (remove && pattern.includes('*') && !confirm(`移除规则 ${pattern}？这会影响所有匹配的网站，不只是当前网站。`)) return;
+  await pendingSave;
+  const config = await changeDomainRule(pattern, remove);
+  currentConfig.domainList = config.domainList;
+  savedConfig.domainList = [...config.domainList];
+  currentConfig.siteRules = config.siteRules;
+  savedConfig.siteRules = structuredClone(config.siteRules);
+  domainListEl.value = config.domainList.join('\n');
+  renderDomainActions();
+  await refreshSite(config);
+}
 
-  const domainListArray = domainListEl.value
-    .split('\n')
-    .map(d => d.trim())
-    .filter(d => d.length > 0);
+/** 与右键菜单一致：只更新当前域名的例外，不偷偷修改通配符。 */
+async function handleSiteOverride(enabled: boolean | null) {
+  if (!currentHostname) return;
+  await pendingSave;
+  const config = await setSiteEnabled(currentHostname, enabled);
+  currentConfig.siteRules = config.siteRules;
+  savedConfig.siteRules = structuredClone(config.siteRules);
+  renderDomainActions();
+  await refreshSite(config);
+}
 
-  // Add to blacklist or remove from whitelist depending on match mode
-  if (currentConfig.matchMode === 'blacklist') {
-    // Add to blacklist if not already there
-    if (!domainListArray.includes(currentHostname)) {
-      domainListArray.push(currentHostname);
-      currentConfig.domainList = domainListArray;
-      domainListEl.value = domainListArray.join('\n');
-    }
-  } else if (currentConfig.matchMode === 'whitelist') {
-    // Remove from whitelist
-    const index = domainListArray.indexOf(currentHostname);
-    if (index > -1) {
-      domainListArray.splice(index, 1);
-      currentConfig.domainList = domainListArray;
-      domainListEl.value = domainListArray.join('\n');
-    }
-  }
-
-  await setConfig(currentConfig);
-
+async function refreshSite(config: PrivacyConfig) {
+  // 等请求头规则同步完再刷新，以新配置重新安装页面钩子。
+  await updateAcceptLanguageRule(config);
+  showAutoSaveToast();
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab?.id) {
-    chrome.tabs.reload(tab.id);
-  }
-
-  window.close();
+  if (tab?.id !== undefined) await chrome.tabs.reload(tab.id);
 }
 
 async function handleSaveCoordinate() {
@@ -467,11 +483,16 @@ globalEnabledEl.addEventListener('change', () => {
 });
 debugModeEl.addEventListener('change', () => saveChanges());
 autoIPSyncEl.addEventListener('change', () => { void saveToggle('autoIPSync', autoIPSyncEl.checked); });
-matchModeEl.addEventListener('blur', () => saveChanges());
+matchModeEl.addEventListener('change', () => saveChanges());
 domainListEl.addEventListener('blur', () => saveChanges());
 
-enableSiteBtn.addEventListener('click', handleEnableSite);
-disableSiteBtn.addEventListener('click', handleDisableSite);
+domainScopeEl.addEventListener('change', renderDomainActions);
+addDomainBtn.addEventListener('click', () => handleDomainRule(
+  domainScopeEl.value === 'subdomains' ? `*.${currentHostname}` : currentHostname, false
+));
+enableSiteBtn.addEventListener('click', () => handleSiteOverride(true));
+disableSiteBtn.addEventListener('click', () => handleSiteOverride(false));
+followSiteBtn.addEventListener('click', () => handleSiteOverride(null));
 
 geolocationEnabledEl.addEventListener('change', () => saveChanges());
 latitudeEl.addEventListener('blur', () => saveChanges());

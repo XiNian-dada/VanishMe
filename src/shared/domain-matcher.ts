@@ -1,96 +1,69 @@
-/**
- * 域名匹配工具
- * 支持通配符匹配：
- * - 精确匹配：example.com
- * - 前缀通配符：*.example.com (匹配所有子域名)
- * - 后缀通配符：example.* (匹配所有 TLD)
- * - 关键词匹配：*keyword* (匹配包含关键词的域名)
- * - 完全通配符：* (匹配所有域名)
- */
+import type { PrivacyConfig } from './types';
 
-/**
- * 将通配符模式转换为正则表达式
- */
-function patternToRegex(pattern: string): RegExp {
-  if (pattern === '*') {
-    return /^.+$/i;
+/** 接受域名或 URL，统一大小写、国际化域名、端口及路径。 */
+export function normalizeDomain(pattern: string): string {
+  const value = pattern.trim();
+  if (!value) return '';
+  try {
+    const url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
+    // URL 实现可能将星号编码为 %2A；规则中的星号必须保留为通配符。
+    return url.hostname.toLowerCase().replace(/%2a/gi, '*').replace(/\.$/, '');
+  } catch {
+    // 单条非法规则不能让整个名单失效，否则页面伪装和请求头规则都会停止工作。
+    return '';
   }
-
-  // Escape special regex characters except *
-  let escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
-
-  // If pattern starts with *., match both subdomains and exact apex domain
-  // e.g., *.google.com matches google.com and mail.google.com, but NOT evilgoogle.com
-  if (escaped.startsWith('\\*\\.')) {
-    const root = escaped.slice(4);
-    return new RegExp(`^(?:.*\\.)?${root}$`, 'i');
-  }
-
-  escaped = escaped.replace(/\*/g, '.*');
-  return new RegExp(`^${escaped}$`, 'i');
 }
 
-/**
- * 检查域名是否匹配给定的模式
- */
+/** 两个配置页面共用名单解析，保存标准化且去重的规则。 */
+export function normalizeDomainList(patterns: string[]): string[] {
+  return [...new Set(patterns.map(normalizeDomain).filter(Boolean))];
+}
+
+/** 页面和 DNR 共用同一域名正则；*.domain 同时包含主域名。 */
+export function domainPatternSource(pattern: string): string {
+  const normalized = normalizeDomain(pattern);
+  const includesSubdomains = normalized.startsWith('*.');
+  const host = includesSubdomains ? normalized.slice(2) : normalized;
+  const source = host.split('*')
+    .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('[^/?#:]*');
+  return includesSubdomains ? `(?:[^/?#:]+\\.)?${source}` : source;
+}
+
 export function matchDomain(domain: string, pattern: string): boolean {
-  if (!domain || !pattern) return false;
-
-  // 标准化域名（移除协议、端口、路径）
-  domain = domain.toLowerCase().trim();
-  pattern = pattern.toLowerCase().trim();
-
-  // 移除协议前缀
-  domain = domain.replace(/^https?:\/\//, '');
-  pattern = pattern.replace(/^https?:\/\//, '');
-
-  // 只保留域名部分（移除端口和路径）
-  domain = domain.split(':')[0].split('/')[0];
-  pattern = pattern.split(':')[0].split('/')[0];
-
-  // 精确匹配（无通配符）
-  if (!pattern.includes('*')) {
-    return domain === pattern;
-  }
-
-  // 使用正则表达式匹配
-  const regex = patternToRegex(pattern);
-  return regex.test(domain);
+  const normalized = normalizeDomain(pattern);
+  if (!domain || !normalized) return false;
+  return new RegExp(`^${domainPatternSource(normalized)}$`, 'i').test(normalizeDomain(domain));
 }
 
-/**
- * 检查域名是否匹配列表中的任意一个模式
- */
 export function matchDomainList(domain: string, patterns: string[]): boolean {
-  if (!domain || !patterns || patterns.length === 0) return false;
-
   return patterns.some(pattern => matchDomain(domain, pattern));
 }
 
-/**
- * 根据匹配模式和域名列表判断是否应该启用伪装
- */
 export function shouldEnableSpoofing(
   domain: string,
   matchMode: 'global' | 'whitelist' | 'blacklist',
   domainList: string[]
 ): boolean {
   if (!domain) return false;
+  if (matchMode === 'global') return true;
+  const matched = matchDomainList(domain, domainList);
+  return matchMode === 'whitelist' ? matched : !matched;
+}
 
-  switch (matchMode) {
-    case 'global':
-      // 全局模式：对所有网站启用
-      return true;
+// 验证码沙箱在所有模式下优先豁免。
+export const SECURITY_CHALLENGE_DOMAINS = [
+  'challenges.cloudflare.com', 'cloudflarechallenge.com', 'cloudflarecaptcha.com',
+  'hcaptcha.com', 'recaptcha.net', 'arkoselabs.com', 'funcaptcha.com'
+];
 
-    case 'whitelist':
-      // 白名单模式：只对列表中的网站启用
-      return matchDomainList(domain, domainList);
+export function isSecurityChallenge(hostname: string): boolean {
+  return SECURITY_CHALLENGE_DOMAINS.some(domain => hostname === domain || hostname.endsWith(`.${domain}`));
+}
 
-    case 'blacklist':
-      // 黑名单模式：对除列表外的所有网站启用
-      return !matchDomainList(domain, domainList);
-
-    default:
-      return false;
-  }
+/** 总开关和验证码豁免优先，其次是仅当前域名的站点例外。 */
+export function isSiteEnabled(hostname: string, config: PrivacyConfig): boolean {
+  if (!hostname || !config.globalEnabled || isSecurityChallenge(hostname)) return false;
+  return config.siteRules[hostname]?.enabled
+    ?? shouldEnableSpoofing(hostname, config.matchMode, config.domainList);
 }

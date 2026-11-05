@@ -520,9 +520,12 @@ test('Cross-origin iframe contentWindow access must not throw SecurityError (Clo
     enumerable: true
   });
 
+  let configListener;
+  let configRequest;
   const mockWin = {
-    addEventListener: () => {},
-    postMessage: () => {},
+    location: { hostname: 'example.com' },
+    addEventListener: (_type, listener) => { configListener = listener; },
+    postMessage: data => { configRequest = data; },
     Intl,
     Date
   };
@@ -541,6 +544,7 @@ test('Cross-origin iframe contentWindow access must not throw SecurityError (Clo
 
   // 运行 injected 脚本
   load('../src/injected/injected');
+  configListener({ source: mockWin, data: { type: '__VM_RES__', nonce: configRequest.nonce, config: { enabled: true } } });
 
   // 1. 跨域 iframe (如 Cloudflare Turnstile / OpenAI Auth0): 访问 contentWindow 绝对不能抛出 SecurityError
   const crossFrame = new MockHTMLIFrameElement(crossOriginWindow);

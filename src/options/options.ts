@@ -1,9 +1,11 @@
 import './options.css';
-import { getConfig, setConfig, resetConfig, applyProfile } from '../shared/storage';
+import { normalizeDomainList } from '../shared/domain-matcher';
+import { getConfig, setConfig, resetConfig, applyProfile, saveConfigChanges } from '../shared/storage';
 import { DEFAULT_PROFILES } from '../shared/defaults';
 import type { PrivacyConfig, Profile } from '../shared/types';
 
 let currentConfig: PrivacyConfig;
+let savedConfig: PrivacyConfig;
 
 // DOM elements
 const globalEnabledEl = document.getElementById('globalEnabled') as HTMLInputElement;
@@ -56,6 +58,7 @@ const cancelSaveProfileBtn = document.getElementById('cancelSaveProfile') as HTM
 
 async function loadConfig() {
   currentConfig = await getConfig();
+  savedConfig = structuredClone(currentConfig);
 
   // Global settings
   globalEnabledEl.checked = currentConfig.globalEnabled;
@@ -64,7 +67,7 @@ async function loadConfig() {
 
   // Match mode
   matchModeEl.value = currentConfig.matchMode || 'global';
-  domainListEl.value = (currentConfig.domainList || []).join('\n');
+  domainListEl.value = normalizeDomainList(currentConfig.domainList || []).join('\n');
 
   // Geolocation
   geolocationEnabledEl.checked = currentConfig.geolocation.enabled;
@@ -411,10 +414,7 @@ async function handleGetFromIP() {
 async function saveSettings() {
   try {
     // Parse domain list
-    const domainListArray = domainListEl.value
-      .split('\n')
-      .map(d => d.trim())
-      .filter(d => d.length > 0);
+    const domainListArray = normalizeDomainList(domainListEl.value.split('\n'));
 
     // Parse languages
     const languagesArray = languagesEl.value
@@ -473,7 +473,9 @@ async function saveSettings() {
     currentConfig.webrtc.enabled = webrtcEnabledEl.checked;
     currentConfig.webrtc.policy = webrtcPolicyEl.value as any;
 
-    await setConfig(currentConfig);
+    await saveConfigChanges(savedConfig, currentConfig);
+    savedConfig = structuredClone(currentConfig);
+    domainListEl.value = currentConfig.domainList.join('\n');
     alert('设置已保存');
   } catch (error) {
     console.error('Failed to save config:', error);

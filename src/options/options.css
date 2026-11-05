@@ -427,3 +427,18 @@ footer {
 .profile-actions button {
   flex: 1;
 }
+
+/* GitHub 入口沿用页面的深色图标样式，并保留键盘焦点。 */
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 6px;
+  color: #aaa;
+  border-radius: 4px;
+}
+.github-link:hover { color: #fff; background: #333; }
+.github-link:focus-visible { outline: 2px solid #4caf50; outline-offset: 2px; }
+
+header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }

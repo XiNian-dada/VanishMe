@@ -1,4 +1,4 @@
-import { getConfig, updateConfig, resetConfig } from '../shared/storage';
+import { getConfig, updateConfig, setSiteEnabled } from '../shared/storage';
 import { applyWebRTCPolicy, resetWebRTCPolicy } from './webrtc';
 import { updateAcceptLanguageRule } from './dnr';
 
@@ -35,6 +35,12 @@ export function createContextMenus(): void {
     });
 
     chrome.contextMenus.create({
+      id: 'follow-site-rules',
+      title: 'Follow domain list on this site',
+      contexts: ['action']
+    });
+
+    chrome.contextMenus.create({
       id: 'separator-2',
       type: 'separator',
       contexts: ['action']
@@ -66,10 +72,13 @@ export function handleContextMenuClick(
       handleDisableGlobally();
       break;
     case 'enable-on-site':
-      if (tab?.url) handleEnableOnSite(tab.url, tab.id);
+      if (tab?.url) void handleSiteOverride(tab.url, true, tab.id);
       break;
     case 'disable-on-site':
-      if (tab?.url) handleDisableOnSite(tab.url, tab.id);
+      if (tab?.url) void handleSiteOverride(tab.url, false, tab.id);
+      break;
+    case 'follow-site-rules':
+      if (tab?.url) void handleSiteOverride(tab.url, null, tab.id);
       break;
     case 'open-leak-test':
       handleOpenLeakTest();
@@ -92,34 +101,13 @@ async function handleDisableGlobally(): Promise<void> {
   await updateAcceptLanguageRule(config);
 }
 
-async function handleEnableOnSite(url: string, tabId?: number): Promise<void> {
-  try {
-    const hostname = new URL(url).hostname;
-    const config = await getConfig();
-    config.siteRules[hostname] = { enabled: true };
-    await updateConfig({ siteRules: config.siteRules });
-
-    if (tabId) {
-      chrome.tabs.reload(tabId);
-    }
-  } catch (error) {
-    console.error('Failed to enable on site:', error);
-  }
-}
-
-async function handleDisableOnSite(url: string, tabId?: number): Promise<void> {
-  try {
-    const hostname = new URL(url).hostname;
-    const config = await getConfig();
-    config.siteRules[hostname] = { enabled: false };
-    await updateConfig({ siteRules: config.siteRules });
-
-    if (tabId) {
-      chrome.tabs.reload(tabId);
-    }
-  } catch (error) {
-    console.error('Failed to disable on site:', error);
-  }
+/** 与弹窗共用站点例外；保存请求头规则后再刷新当前页面。 */
+async function handleSiteOverride(url: string, enabled: boolean | null, tabId?: number): Promise<void> {
+  const parsed = new URL(url);
+  if (!['http:', 'https:'].includes(parsed.protocol)) return;
+  const config = await setSiteEnabled(parsed.hostname, enabled);
+  await updateAcceptLanguageRule(config);
+  if (tabId !== undefined) await chrome.tabs.reload(tabId);
 }
 
 function handleOpenLeakTest(): void {

@@ -1,233 +1,51 @@
 import type { PrivacyConfig } from '../shared/types';
+import { domainPatternSource, normalizeDomainList, SECURITY_CHALLENGE_DOMAINS } from '../shared/domain-matcher';
 
 const ACCEPT_LANGUAGE_RULE_ID_START = 1;
 const ACCEPT_LANGUAGE_RULE_ID_END = 1000;
 
-const ACCEPT_LANGUAGE_RESOURCE_TYPES = [
-  chrome.declarativeNetRequest.ResourceType.MAIN_FRAME,
-  chrome.declarativeNetRequest.ResourceType.SUB_FRAME,
-  chrome.declarativeNetRequest.ResourceType.XMLHTTPREQUEST
-];
-
-const SECURITY_CHALLENGE_DOMAINS = [
-  'challenges.cloudflare.com',
-  'cloudflarechallenge.com',
-  'cloudflarecaptcha.com',
-  'hcaptcha.com',
-  'recaptcha.net',
-  'arkoselabs.com',
-  'funcaptcha.com'
-];
-
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function normalizePattern(pattern: string): string | null {
-  const trimmed = pattern.trim().toLowerCase();
-  if (!trimmed) return null;
-
-  const withoutProtocol = trimmed.replace(/^https?:\/\//, '');
-  const domainOnly = withoutProtocol.split('/')[0].split(':')[0];
-
-  return domainOnly || null;
-}
-
-function patternToUrlRegex(pattern: string): string | null {
-  const normalized = normalizePattern(pattern);
-  if (!normalized) return null;
-
-  if (normalized === '*') {
-    return '^https?://';
-  }
-
-  const hostPattern = normalized
-    .split('*')
-    .map(escapeRegex)
-    .join('[^/?#:]*');
-
-  return `^https?://(?:[^/?#@]*@)?${hostPattern}(?::[0-9]+)?(?:[/?#]|$)`;
-}
-
-function exactDomains(patterns: string[]): string[] {
-  const domains: string[] = [];
-
-  patterns.forEach(pattern => {
-    const normalized = normalizePattern(pattern);
-    if (normalized && normalized !== '*' && !normalized.includes('*')) {
-      domains.push(normalized);
-    }
-  });
-
-  return domains;
-}
-
-function createRuleCondition(
-  pattern?: string,
-  excludedDomains: string[] = []
-): chrome.declarativeNetRequest.RuleCondition | null {
-  const condition: chrome.declarativeNetRequest.RuleCondition = {};
-
-  if (excludedDomains.length > 0) {
-    condition.excludedRequestDomains = excludedDomains;
-  }
-
-  if (!pattern || pattern === '*') {
-    condition.urlFilter = '|http*';
-    return condition;
-  }
-
-  const normalized = normalizePattern(pattern);
-  if (!normalized) return null;
-
-  // Exact domain or *.domain wildcard: requestDomains natively matches the domain and all subdomains!
-  // e.g. 'browserscan.net' matches 'browserscan.net', 'www.browserscan.net', etc.
-  if (!normalized.includes('*')) {
-    condition.requestDomains = [normalized];
-    return condition;
-  }
-
-  if (normalized.startsWith('*.')) {
-    const rootDomain = normalized.slice(2);
-    if (!rootDomain.includes('*')) {
-      condition.requestDomains = [rootDomain];
-      return condition;
-    }
-  }
-
-  const regexFilter = patternToUrlRegex(pattern);
-  if (!regexFilter) {
-    return null;
-  }
-
-  condition.regexFilter = regexFilter;
-  condition.isUrlFilterCaseSensitive = false;
-  return condition;
-}
-
-function createModifyHeaderRule(
-  id: number,
-  acceptLanguage: string,
-  condition: chrome.declarativeNetRequest.RuleCondition,
-  priority = 1
-): chrome.declarativeNetRequest.Rule {
+/** 使用与页面相同的域名边界，避免 requestDomains 隐式匹配子域名。 */
+function createRuleCondition(pattern: string): chrome.declarativeNetRequest.RuleCondition {
   return {
-    id,
-    priority,
-    action: {
-      type: chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
-      requestHeaders: [
-        {
-          header: 'Accept-Language',
-          operation: chrome.declarativeNetRequest.HeaderOperation.SET,
-          value: acceptLanguage
-        }
-      ]
-    },
-    condition
-  };
-}
-
-function createAllowRule(
-  id: number,
-  condition: chrome.declarativeNetRequest.RuleCondition,
-  priority = 2
-): chrome.declarativeNetRequest.Rule {
-  return {
-    id,
-    priority,
-    action: {
-      type: chrome.declarativeNetRequest.RuleActionType.ALLOW
-    },
-    condition
+    regexFilter: `^https?://(?:[^/?#@]*@)?${domainPatternSource(pattern)}(?::[0-9]+)?(?:[/?#]|$)`,
+    isUrlFilterCaseSensitive: false
   };
 }
 
 function buildAcceptLanguageRules(config: PrivacyConfig): chrome.declarativeNetRequest.Rule[] {
   const rules: chrome.declarativeNetRequest.Rule[] = [];
-  let nextRuleId = ACCEPT_LANGUAGE_RULE_ID_START;
-
-  const nextId = () => {
-    if (nextRuleId > ACCEPT_LANGUAGE_RULE_ID_END) {
-      throw new Error('Too many Accept-Language rules');
-    }
-
-    return nextRuleId++;
+  const addRule = (pattern: string, enabled: boolean, priority: number) => {
+    rules.push({
+      id: ACCEPT_LANGUAGE_RULE_ID_START + rules.length,
+      priority,
+      action: enabled ? {
+        type: chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
+        requestHeaders: [{
+          header: 'Accept-Language',
+          operation: chrome.declarativeNetRequest.HeaderOperation.SET,
+          value: config.language.acceptLanguage
+        }]
+      } : { type: chrome.declarativeNetRequest.RuleActionType.ALLOW },
+      condition: createRuleCondition(pattern)
+    });
   };
 
-  const siteRuleEntries = Object.entries(config.siteRules || {});
-  const enabledSiteRules = siteRuleEntries
-    .filter(([, rule]) => rule.enabled)
-    .map(([hostname]) => hostname);
-  const disabledSiteRules = siteRuleEntries
-    .filter(([, rule]) => !rule.enabled)
-    .map(([hostname]) => hostname);
-
-  const addModifyRule = (pattern: string, priority = 1, excludedDomains: string[] = []) => {
-    const condition = createRuleCondition(pattern, excludedDomains);
-    if (condition) {
-      rules.push(createModifyHeaderRule(nextId(), config.language.acceptLanguage, condition, priority));
-    }
-  };
-
-  const addAllowRule = (pattern: string, priority = 2) => {
-    const condition = createRuleCondition(pattern);
-    if (condition) {
-      rules.push(createAllowRule(nextId(), condition, priority));
-    }
-  };
-
-  switch (config.matchMode) {
-    case 'whitelist': {
-      const disabledDomains = exactDomains(disabledSiteRules);
-      [...(config.domainList || []), ...enabledSiteRules].forEach(pattern => {
-        addModifyRule(pattern, 1, disabledDomains);
-      });
-      break;
-    }
-
-    case 'blacklist': {
-      const excludedPatterns = [...(config.domainList || []), ...disabledSiteRules, ...SECURITY_CHALLENGE_DOMAINS];
-      const excludedDomains = exactDomains(excludedPatterns);
-
-      excludedPatterns.forEach(pattern => {
-        addAllowRule(pattern, 2);
-      });
-
-      const globalCondition = createRuleCondition(undefined, excludedDomains);
-      if (globalCondition) {
-        rules.push(createModifyHeaderRule(nextId(), config.language.acceptLanguage, globalCondition));
-      }
-
-      enabledSiteRules.forEach(pattern => {
-        addModifyRule(pattern, 3);
-      });
-      break;
-    }
-
-    case 'global':
-    default: {
-      const disabledDomains = Array.from(new Set([
-        ...exactDomains(disabledSiteRules),
-        ...SECURITY_CHALLENGE_DOMAINS
-      ]));
-
-      disabledSiteRules.forEach(pattern => {
-        addAllowRule(pattern, 2);
-      });
-
-      SECURITY_CHALLENGE_DOMAINS.forEach(pattern => {
-        addAllowRule(pattern, 2);
-      });
-
-      const globalCondition = createRuleCondition(undefined, disabledDomains);
-      if (globalCondition) {
-        rules.push(createModifyHeaderRule(nextId(), config.language.acceptLanguage, globalCondition));
-      }
-      break;
+  // 1. 全局/黑名单默认启用；白名单仅启用匹配项。
+  if (config.matchMode !== 'whitelist') addRule('*', true, 1);
+  if (config.matchMode !== 'global') {
+    for (const pattern of normalizeDomainList(config.domainList)) {
+      addRule(pattern, config.matchMode === 'whitelist', config.matchMode === 'whitelist' ? 1 : 2);
     }
   }
 
+  // 2. 站点例外只作用于精确域名，优先于两种名单。
+  for (const [hostname, rule] of Object.entries(config.siteRules)) {
+    addRule(hostname, rule.enabled, 3);
+  }
+
+  // 3. 验证码沙箱始终豁免，站点例外也不能覆盖。
+  for (const hostname of SECURITY_CHALLENGE_DOMAINS) addRule(`*.${hostname}`, false, 4);
+  if (rules.length > ACCEPT_LANGUAGE_RULE_ID_END) throw new Error('Too many Accept-Language rules');
   return rules;
 }
 
