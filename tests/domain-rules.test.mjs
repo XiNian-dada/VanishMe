@@ -237,7 +237,7 @@ test('完整配置页保存名单及删除例外时保留其他页面的新配�
   assert.deepEqual(env.config().domainList, ['example.com']);
 });
 
-function loadInjected(cached) {
+function loadInjected(cached, boot) {
   const calls = [];
   const store = new Map(cached ? [['__vm_cfg__', JSON.stringify(cached)]] : []);
   let listener;
@@ -246,6 +246,7 @@ function loadInjected(cached) {
   const document = { createElement };
   const window = {
     location: { hostname: 'example.com' },
+    ...(boot ? { __vm_boot__: boot } : {}),
     addEventListener: (_type, fn) => { listener = fn; },
     postMessage: data => { request = data; }
   };
@@ -255,20 +256,36 @@ function loadInjected(cached) {
     removeItem: key => store.delete(key)
   } });
   const stub = {
-    isSecurityChallenge: () => false, saveOriginalMethods() {},
+    isSecurityChallenge: () => false, isSiteEnabled: (_host, config) => config.globalEnabled, saveOriginalMethods() {},
     makeNativeFunction: fn => fn, createNativeGetter: (_name, fn) => fn,
     installAntiDetection: () => calls.push('anti'), installLanguageSpoof: () => calls.push('language'), installSpeechSpoof() {}
   };
   const source = transpile(readFileSync(resolve(root, 'src/injected/injected.ts'), 'utf8'));
   vm.runInContext(`(function(require,exports) {${source}\n})`, context)(() => stub, {});
   return {
-    calls, store, document, createElement,
+    calls, store, document, createElement, window,
     respond: config => listener({ source: window, data: { type: '__VM_RES__', nonce: request.nonce, config } }),
     update: config => listener({ source: window, data: { type: '__VM_UPDATE__', config } })
   };
 }
 
 const ENABLED = { enabled: true, language: { enabled: true } };
+
+test('同步配置在握手前安装伪装、立即删除全局变量且不写缓存', () => {
+  const page = loadInjected({ enabled: true, language: { enabled: true } }, { globalEnabled: true, language: { enabled: true } });
+  assert.deepEqual(page.calls, ['anti', 'language']);
+  assert.equal('__vm_boot__' in page.window, false);
+  // 握手后清除回退模式遗留的缓存，也不再写入新缓存。
+  page.respond(ENABLED);
+  assert.equal(page.store.has('__vm_cfg__'), false);
+});
+
+test('同步配置判定禁用时不安装钩子，并优先于旧缓存', () => {
+  const page = loadInjected(ENABLED, { globalEnabled: false, language: { enabled: true } });
+  assert.deepEqual(page.calls, []);
+  assert.equal(page.document.createElement, page.createElement);
+  assert.equal('__vm_boot__' in page.window, false);
+});
 
 test('已启用站点的缓存在握手前同步安装伪装，避免早期脚本读到真实环境', () => {
   const page = loadInjected(ENABLED);
